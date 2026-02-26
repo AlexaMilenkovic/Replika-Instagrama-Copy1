@@ -1,0 +1,35 @@
+require("dotenv").config();
+const express = require("express");
+const jwt = require("jsonwebtoken");
+const { createClient } = require("redis");
+
+const app = express();
+app.use(express.json());
+
+const redis = createClient({ url: process.env.REDIS_URL });
+
+if (process.env.NODE_ENV !== "test") {
+  redis.connect();
+}
+
+async function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "Unauthorized" });
+
+  const blacklisted = await redis.get(`blacklist:${token}`);
+  if (blacklisted) return res.status(401).json({ message: "Token revoked" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    res.status(401).json({ message: "Invalid token" });
+  }
+}
+
+app.get("/protected", authMiddleware, (req, res) => {
+  res.json({ message: "Access granted", user: req.user });
+});
+
+module.exports = app;
