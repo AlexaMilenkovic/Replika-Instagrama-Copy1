@@ -41,8 +41,8 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/faks-projekat-pisibp:${{ steps.timestamp.outputs.TAG }} .
-
-      - name: Push image
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/faks-projekat-pisibp:${{ steps.timestamp.outputs.TAG }}
+          # Definišemo varijablu unutar shell-a da budemo sigurni
+          DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
+          IMAGE_TAG=${{ steps.timestamp.outputs.TAG }}
+          
+          docker build -t $DOCKER_USER/faks-projekat-pisibp:$IMAGE_TAG -t $DOCKER_USER/faks-projekat-pisibp:latest .
