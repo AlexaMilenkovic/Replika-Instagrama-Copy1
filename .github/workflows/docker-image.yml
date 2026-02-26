@@ -41,8 +41,8 @@ jobs:
 
       - name: Build image
         run: |
-          #docker build -t ${{ secrets.DOCKER_USERNAME }}/app:${{ steps.timestamp.outputs.TAG }} .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/faks-projekat-pisibp:${{ steps.timestamp.outputs.TAG }} .
 
       - name: Push image
         run: |
-          #docker push ${{ secrets.DOCKER_USERNAME }}/app:${{ steps.timestamp.outputs.TAG }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/faks-projekat-pisibp:${{ steps.timestamp.outputs.TAG }}
