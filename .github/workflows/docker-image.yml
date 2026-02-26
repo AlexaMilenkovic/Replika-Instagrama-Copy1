@@ -29,20 +29,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Generate timestamp
         id: timestamp
         run: echo "TAG=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
 
-      - name: Login to Docker
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build image
+      - name: Build all microservices with Docker Compose
         run: |
-          # Definišemo varijablu unutar shell-a da budemo sigurni
-          DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
-          IMAGE_TAG=${{ steps.timestamp.outputs.TAG }}
+          export IMAGE_TAG=${{ steps.timestamp.outputs.TAG }}
+          export DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
           
-          docker build -t $DOCKER_USER/faks-projekat-pisibp:$IMAGE_TAG -t $DOCKER_USER/faks-projekat-pisibp:latest .
+          # Build all images defined in docker-compose.yml
+          docker compose build --build-arg IMAGE_TAG=$IMAGE_TAG
+
+      - name: Push all microservices to Docker Hub
+        run: |
+          docker compose push
