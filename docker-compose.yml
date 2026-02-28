@@ -8,7 +8,7 @@ services:
 
   authentication:
     build: ./authentication/auth
-    image: ${DOCKER_USER}/faks-projekat-pisibp:${IMAGE_TAG}
+    image: ${DOCKER_USER}/faks-projekat-pisibp/auth:${IMAGE_TAG}
     environment:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: secret
@@ -19,11 +19,12 @@ services:
       - "3004:3004"
   logout:
     build: ./authentication/logout
-    image: ${DOCKER_USER}/faks-projekat-pisibp:${IMAGE_TAG}
+    image: ${DOCKER_USER}/faks-projekat-pisibp/logout:${IMAGE_TAG}
     environment:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: secret
     depends_on:
       - redis
     ports:
+
       - "3003:3003"
