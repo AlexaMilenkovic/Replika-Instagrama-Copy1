@@ -7,7 +7,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Testna ruta 
+// Testna ruta provera
 app.get('/test-db', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT 1 + 1 AS result');
