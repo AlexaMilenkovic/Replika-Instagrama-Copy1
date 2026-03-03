@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renderuje početnu poruku', () => {
+test('renderuje Instagram Replica naslov', () => {
   render(<App />);
-  const element = screen.getByText(/dobrodošli/i);
+  // Sada test traži naš novi naslov na vrhu ekrana
+  const element = screen.getByText(/Instagram Replica/i);
   expect(element).toBeInTheDocument();
 });
