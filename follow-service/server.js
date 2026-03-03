@@ -20,3 +20,13 @@ app.get('/test-db', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Follow servis radi na portu ${PORT}`);
 });
+
+// rute 
+app.post('/follow', FollowController.followUser);       // Zahtev 1.2.1 & 1.2.2
+app.delete('/unfollow', FollowController.unfollowUser); // Zahtev 1.2
+app.post('/block', FollowController.blockUser);         // Zahtev 1.3
+app.get('/stats/:userId', FollowController.getStats);   // Zahtev 1.2
+
+app.listen(PORT, () => {
+  console.log(`Follow servis radi na portu ${PORT}`);
+});
