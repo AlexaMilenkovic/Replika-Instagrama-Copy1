@@ -1,11 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Register from './pages/Register/Register'; // vrati se ksenija nesto nece 
+import Timeline from './pages/Timeline/Timeline';
+import Register from './pages/Register/Register';
 import Login from './pages/Login/Login';
 function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<Timeline />} />
         {/* Putanja za registraciju - Zahtev 1.1 [cite: 7] */}
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
