@@ -4,25 +4,86 @@ services:
     ports:
       - "6379:6379"
 
-  authentication:
-    build: ./authentication/auth
-    image: alexa151/faks-projekat-pisibp:Auth-${IMAGE_TAG}
+  registration:
+    build: ./authentication/registration
+    image: alexa151/faks-projekat-pisibp:Registration-${IMAGE_TAG}
     environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: instagram_replika
       REDIS_URL: redis://redis:6379
       JWT_SECRET: secret
       JWT_REFRESH_SECRET: refreshsecret
     depends_on:
+      - mysql
       - redis
     ports:
-      - "3004:3004"
+      - "3000:3000"
+
+  auth:
+    build: ./authentication/auth
+    image: alexa151/faks-projekat-pisibp:Auth-${IMAGE_TAG}
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: instagram_replika
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: secret
+      JWT_REFRESH_SECRET: refreshsecret
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "3001:3001"
+
+  login:
+    build: ./authentication/login
+    image: alexa151/faks-projekat-pisibp:Login-${IMAGE_TAG}
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: instagram_replika
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: secret
+      JWT_REFRESH_SECRET: refreshsecret
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "3002:3002"
 
   logout:
     build: ./authentication/logout
     image: alexa151/faks-projekat-pisibp:Logout-${IMAGE_TAG}
     environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: instagram_replika
       REDIS_URL: redis://redis:6379
       JWT_SECRET: secret
+      JWT_REFRESH_SECRET: refreshsecret
     depends_on:
+      - mysql
       - redis
     ports:
       - "3003:3003"
+  
+  mysql:
+    image: mysql:8.0
+    container_name: instagram_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: instagram_replika
+    ports:
+      - "3300:3300"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+
+volumes:
+  mysql_data:
