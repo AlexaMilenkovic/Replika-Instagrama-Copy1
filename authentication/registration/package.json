@@ -1,0 +1,20 @@
+{
+  "name": "registracija-service",
+  "version": "1.0.0",
+  "main": "registracija.js",
+  "scripts": {
+    "test": "jest --coverage"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "mysql2": "^3.0.0",
+    "redis": "^4.6.0"
+  },
+  "devDependencies": {
+    "jest": "^25.0.0",
+    "supertest": "^6.3.3"
+  }
+}
