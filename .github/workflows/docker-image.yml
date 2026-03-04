@@ -1,5 +1,4 @@
 name: CI/CD
-
 on:
   push:
     branches:
@@ -7,9 +6,8 @@ on:
   pull_request:
     branches:
       - main
-
 jobs:
-  # ✅ Run on BOTH push and PR
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -19,41 +17,11 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm test
-
-  # ✅ Detect which services changed
-  detect-changes:
+      
+  build-and-push-docker:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: test
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            auth:
-              - 'authentication/auth/**'
-            logout:
-              - 'authentication/logout/**'
-      - name: Build matrix of changed services
-        id: set-matrix
-        run: |
-          SERVICES=()
-          [ "${{ steps.filter.outputs.authentication }}" == "true" ] && SERVICES+=("authentication")
-          [ "${{ steps.filter.outputs.logout }}" == "true" ] && SERVICES+=("logout")
-          JSON=$(printf '%s\n' "${SERVICES[@]}" | jq -R . | jq -sc .)
-          echo "matrix=$JSON" >> $GITHUB_OUTPUT
-
-  # ✅ Single build job, runs once per changed service
-  build-and-push:
-    if: needs.detect-changes.outputs.matrix != '[]'
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    strategy:
-      matrix:
-        service: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
@@ -66,9 +34,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build and push ${{ matrix.service }}
+      - name: Build images
         env:
           IMAGE_TAG: ${{ steps.timestamp.outputs.TAG }}
-        run: |
-          docker compose build ${{ matrix.service }}
-          docker compose push ${{ matrix.service }}
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+        run: docker compose build
+      - name: Push images
+        env:
+          IMAGE_TAG: ${{ steps.timestamp.outputs.TAG }}
+          DOCKER_USER: ${{ vars.DOCKERHUB_USERNAME }}
+        run: docker compose push
