@@ -21,12 +21,15 @@ app.listen(PORT, () => {
   console.log(`Follow servis radi na portu ${PORT}`);
 });
 
-// rute 
-app.post('/follow', FollowController.followUser);       // Zahtev 1.2.1 & 1.2.2
-app.delete('/unfollow', FollowController.unfollowUser); // Zahtev 1.2
-app.post('/block', FollowController.blockUser);         // Zahtev 1.3
-app.get('/stats/:userId', FollowController.getStats);   // Zahtev 1.2
+// Rute za Praćenje (Follow) i Blokiranje (Block) 
+app.post('/follow', FollowController.followUser);             // Slanje zahteva (Javni/Privatni)
+app.put('/follow/accept', FollowController.acceptFollow);      // Prihvatanje zahteva 
+app.delete('/follow/reject', FollowController.rejectFollow);   // Odbijanje zahteva 
+app.get('/follow/notifications/:userId', FollowController.getNotifications); // Lista zahteva za meni
 
+app.delete('/unfollow', FollowController.unfollowUser);       // Prekid praćenja 
+app.post('/block', FollowController.blockUser);               // Blokiranje 
+app.get('/stats/:userId', FollowController.getStats);         // Broj pratilaca i praćenih 
 app.listen(PORT, () => {
   console.log(`Follow servis radi na portu ${PORT}`);
 });

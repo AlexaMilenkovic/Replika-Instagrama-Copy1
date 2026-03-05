@@ -7,7 +7,20 @@ const FollowModel = {
         return db.query(query, [followerId, followingId, status]);
     },
 
-    //  Otpraćivanje ili uklanjanje pratioca 
+    // Za prihvatanje zahteva (Menjamo status)
+    async updateFollowStatus(followerId, followingId, newStatus) {
+        const query = 'UPDATE follows SET status = ? WHERE follower_id = ? AND following_id = ?';
+        return db.query(query, [newStatus, followerId, followingId]);
+    },
+
+    // Za "Notifikacije" - lista svih koji čekaju odobrenje
+    async getPendingRequests(userId) {
+        const query = 'SELECT follower_id, created_at FROM follows WHERE following_id = ? AND status = "PENDING"';
+        const [rows] = await db.query(query, [userId]);
+        return rows;
+    },
+
+    //  Otpraćivanje ili uklanjanje pratioca i odbijanje zahteva
     async deleteFollow(followerId, followingId) {
         const query = 'DELETE FROM follows WHERE follower_id = ? AND following_id = ?';
         return db.query(query, [followerId, followingId]);
