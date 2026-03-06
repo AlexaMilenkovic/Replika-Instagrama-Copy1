@@ -1,19 +1,23 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Timeline from './pages/Timeline/Timeline';
-import Register from './pages/Register/Register';
+import Profile from './pages/Profile/Profile';
 import Login from './pages/Login/Login';
+import Register from './pages/Register/Register';
+import Navbar from './components/Navbar';
+
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Timeline />} />
-        {/* Putanja za registraciju - Zahtev 1.1 [cite: 7] */}
-        <Route path="/register" element={<Register />} />
-        <Route path="/login" element={<Login />} />
-        {/* Početna stranica - privremeno */}
-        <Route path="/" element={<h1>Dobrodošli! Idite na /register</h1>} />
-      </Routes>
+      <div style={{ paddingBottom: '60px' }}> 
+        <Routes>
+          <Route path="/" element={<Timeline />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Routes>
+      </div>
+      <Navbar />
     </Router>
   );
 }
