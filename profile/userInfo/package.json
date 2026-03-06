@@ -1,0 +1,22 @@
+{
+  "name": "user-info-service",
+  "version": "1.0.0",
+  "main": "UserInfoServer.js",
+  "scripts": {
+    "start": "node UserInfoServer.js",
+    "dev": "nodemon UserInfoServer.js",
+    "test": "jest --coverage"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  }
+}

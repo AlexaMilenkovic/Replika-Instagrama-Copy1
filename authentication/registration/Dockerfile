@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 3001
 
-CMD ["node", "registracijaServe.js"]
+CMD ["node", "RegistrationServer.js"]
