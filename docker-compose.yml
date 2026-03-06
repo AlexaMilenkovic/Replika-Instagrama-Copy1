@@ -141,6 +141,19 @@ services:
       - mysql
     ports:
       - "3014:3014"
+  feed:
+    build: ./feed
+    image: alexa151/faks-projekat-pisibp:Feed-${IMAGE_TAG}
+    ports:
+      - "3015:3015"
+    environment:
+      DB_HOST: mysql
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: instagram_replika
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - mysql
 
       
   mysql:
@@ -157,6 +170,4 @@ services:
       - ./docker/mysql/init:/docker-entrypoint-initdb.d
 
 volumes:
-
   mysql_data:
-
