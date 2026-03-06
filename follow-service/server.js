@@ -2,6 +2,9 @@ const express = require('express');
 require('dotenv').config();
 const db = require('./config/db');
 
+// Uvozimo kontroler 
+const FollowController = require('./controllers/FollowController');
+
 const app = express();
 app.use(express.json()); 
 
@@ -17,15 +20,18 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Follow servis radi na portu ${PORT}`);
-});
+// 2. Rute za Praćenje (Follow) i Blokiranje (Block) 
+app.post('/follow', FollowController.followUser);             // Slanje zahteva
+app.put('/follow/accept', FollowController.acceptFollow);      // Prihvatanje zahteva
+app.delete('/follow/reject', FollowController.rejectFollow);   // Odbijanje zahteva
+app.get('/follow/notifications/:userId', FollowController.getNotifications); // Lista zahteva
+app.delete('/followers/remove', FollowController.removeFollower); // uklanjanje pratioca
+app.get('/block-status', FollowController.getBlockStatus);        //blok status
+app.get('/relationship-status', FollowController.getRelationshipStatus);  //follow status
+app.delete('/unfollow', FollowController.unfollowUser);       // Prekid praćenja
+app.post('/block', FollowController.blockUser);               // Blokiranje
+app.get('/stats/:userId', FollowController.getStats);         // Statistika
 
-// rute 
-app.post('/follow', FollowController.followUser);       // Zahtev 1.2.1 & 1.2.2
-app.delete('/unfollow', FollowController.unfollowUser); // Zahtev 1.2
-app.post('/block', FollowController.blockUser);         // Zahtev 1.3
-app.get('/stats/:userId', FollowController.getStats);   // Zahtev 1.2
 
 app.listen(PORT, () => {
   console.log(`Follow servis radi na portu ${PORT}`);
