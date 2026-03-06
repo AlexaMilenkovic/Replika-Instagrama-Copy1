@@ -73,7 +73,7 @@ services:
       - "3003:3003"
   
   search:
-    build: ./search
+    build: ./profile/search
     image: alexa151/faks-projekat-pisibp:Search-${IMAGE_TAG}
     environment:
       DB_HOST: mysql
@@ -87,7 +87,7 @@ services:
       - "3010:3010"
 
   user-follows:
-    build: ./userFollowing
+    build: ./profile/userFollowing
     image: alexa151/faks-projekat-pisibp:UserFollows-${IMAGE_TAG}
     environment:
       DB_HOST: mysql
@@ -101,7 +101,7 @@ services:
       - "3011:3011"
 
   users-following:
-    build: ./userFollowers
+    build: ./profile/userFollowers
     image: alexa151/faks-projekat-pisibp:UsersFollowing-${IMAGE_TAG}
     environment:
       DB_HOST: mysql
@@ -115,7 +115,7 @@ services:
       - "3012:3012"
 
   user-info:
-    build: ./userInfo
+    build: ./profile/userInfo
     image: alexa151/faks-projekat-pisibp:UserInfo-${IMAGE_TAG}
     environment:
       DB_HOST: mysql
@@ -129,7 +129,7 @@ services:
       - "3013:3013"
 
   user-posts:
-    build: ./userPosts
+    build: ./profile/userPosts
     image: alexa151/faks-projekat-pisibp:UserPosts-${IMAGE_TAG}
     environment:
       DB_HOST: mysql
@@ -159,3 +159,4 @@ services:
 volumes:
 
   mysql_data:
+
