@@ -87,7 +87,7 @@ services:
       - "3010:3010"
 
   user-follows:
-    build: ./userFollows
+    build: ./userFollowing
     image: alexa151/faks-projekat-pisibp:UserFollows-${IMAGE_TAG}
     environment:
       DB_HOST: mysql
@@ -101,7 +101,7 @@ services:
       - "3011:3011"
 
   users-following:
-    build: ./usersFollowing
+    build: ./userFollowers
     image: alexa151/faks-projekat-pisibp:UsersFollowing-${IMAGE_TAG}
     environment:
       DB_HOST: mysql
@@ -157,4 +157,5 @@ services:
       - ./docker/mysql/init:/docker-entrypoint-initdb.d
 
 volumes:
+
   mysql_data:
