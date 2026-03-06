@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 3002
 
-CMD ["node", "prijavaServe.js"]
+CMD ["node", "LoginServer.js"]

@@ -1,8 +1,10 @@
 {
   "name": "auth-service",
   "version": "1.0.0",
-  "main": "auth.js",
+  "main": "AuthServer.js",
   "scripts": {
+    "start": "node AuthServer.js",
+    "dev": "nodemon AuthServer.js",
     "test": "jest --coverage"
   },
   "dependencies": {
