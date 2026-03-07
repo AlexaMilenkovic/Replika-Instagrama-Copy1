@@ -1,0 +1,332 @@
+const InteractionModel = require('../models/InteractionModel');
+
+function isValidId(value) {
+  return !Number.isNaN(Number(value)) && Number(value) > 0;
+}
+
+function normalizeBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    return value === 'true' || value === '1';
+  }
+  return false;
+}
+
+async function getPostMeta(postId) {
+  const response = await fetch(`${process.env.POST_SERVICE_URL}/posts/${postId}/meta`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error('Greška pri komunikaciji sa post servisom');
+  }
+
+  return response.json();
+}
+
+async function getBlockStatus(viewerId, ownerId) {
+  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/block-status?userId=${viewerId}&targetUserId=${ownerId}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error('Greška pri komunikaciji sa relationship servisom (block-status)');
+  }
+
+  const data = await response.json();
+
+  return (
+    normalizeBoolean(data.blocked) ||
+    normalizeBoolean(data.isBlocked) ||
+    normalizeBoolean(data.blockExists) ||
+    normalizeBoolean(data.areBlocked)
+  );
+}
+
+async function getRelationshipStatus(viewerId, ownerId) {
+  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/relationship-status?userId=${viewerId}&targetUserId=${ownerId}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error('Greška pri komunikaciji sa relationship servisom (relationship-status)');
+  }
+
+  const data = await response.json();
+
+  const isPublic =
+    normalizeBoolean(data.isPublic) ||
+    normalizeBoolean(data.publicProfile) ||
+    normalizeBoolean(data.isPublicProfile);
+
+  const isFollowing =
+    normalizeBoolean(data.isFollowing) ||
+    normalizeBoolean(data.following) ||
+    normalizeBoolean(data.follows);
+
+  return { isPublic, isFollowing };
+}
+
+async function canInteractWithPost(viewerId, ownerId) {
+  if (Number(viewerId) === Number(ownerId)) {
+    return true;
+  }
+
+  const blocked = await getBlockStatus(viewerId, ownerId);
+  if (blocked) {
+    return false;
+  }
+
+  const relationship = await getRelationshipStatus(viewerId, ownerId);
+  return relationship.isPublic || relationship.isFollowing;
+}
+
+function mapComment(comment) {
+  return {
+    id: comment.id,
+    userId: comment.user_id,
+    postId: comment.post_id,
+    content: comment.content,
+    createdAt: comment.created_at,
+    updatedAt: comment.updated_at
+  };
+}
+
+const likePost = async (req, res) => {
+  const postId = Number(req.params.id);
+  const userId = Number(req.body.userId);
+
+  if (!isValidId(postId)) {
+    return res.status(400).json({ error: 'Neispravan postId' });
+  }
+
+  if (!isValidId(userId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  try {
+    const postMeta = await getPostMeta(postId);
+
+    if (!postMeta) {
+      return res.status(404).json({ error: 'Objava nije pronađena' });
+    }
+
+    const allowed = await canInteractWithPost(userId, postMeta.userId);
+
+    if (!allowed) {
+      return res.status(403).json({ error: 'Nemate dozvolu da lajkujete ovu objavu' });
+    }
+
+    const exists = await InteractionModel.likeExists(userId, postId);
+    if (exists) {
+      return res.json({ message: 'Objava je već lajkovana' });
+    }
+
+    await InteractionModel.addLike(userId, postId);
+
+    return res.status(201).json({ message: 'Objava je uspešno lajkovana' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri lajkovanju objave' });
+  }
+};
+
+const unlikePost = async (req, res) => {
+  const postId = Number(req.params.id);
+  const userId = Number(req.body.userId);
+
+  if (!isValidId(postId)) {
+    return res.status(400).json({ error: 'Neispravan postId' });
+  }
+
+  if (!isValidId(userId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  try {
+    await InteractionModel.removeLike(userId, postId);
+    return res.json({ message: 'Lajk je uklonjen' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri uklanjanju lajka' });
+  }
+};
+
+const getLikesCount = async (req, res) => {
+  const postId = Number(req.params.id);
+
+  if (!isValidId(postId)) {
+    return res.status(400).json({ error: 'Neispravan postId' });
+  }
+
+  try {
+    const count = await InteractionModel.getLikesCount(postId);
+    return res.json({ count });
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri brojanju lajkova' });
+  }
+};
+
+const addComment = async (req, res) => {
+  const postId = Number(req.params.id);
+  const userId = Number(req.body.userId);
+  const content = req.body.content?.trim();
+
+  if (!isValidId(postId)) {
+    return res.status(400).json({ error: 'Neispravan postId' });
+  }
+
+  if (!isValidId(userId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  if (!content) {
+    return res.status(400).json({ error: 'Sadržaj komentara je obavezan' });
+  }
+
+  try {
+    const postMeta = await getPostMeta(postId);
+
+    if (!postMeta) {
+      return res.status(404).json({ error: 'Objava nije pronađena' });
+    }
+
+    const allowed = await canInteractWithPost(userId, postMeta.userId);
+
+    if (!allowed) {
+      return res.status(403).json({ error: 'Nemate dozvolu da komentarišete ovu objavu' });
+    }
+
+    const commentId = await InteractionModel.addComment(userId, postId, content);
+
+    return res.status(201).json({
+      id: commentId,
+      message: 'Komentar je dodat'
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri dodavanju komentara' });
+  }
+};
+
+const updateComment = async (req, res) => {
+  const commentId = Number(req.params.commentId);
+  const userId = Number(req.body.userId);
+  const content = req.body.content?.trim();
+
+  if (!isValidId(commentId)) {
+    return res.status(400).json({ error: 'Neispravan commentId' });
+  }
+
+  if (!isValidId(userId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  if (!content) {
+    return res.status(400).json({ error: 'Sadržaj komentara je obavezan' });
+  }
+
+  try {
+    const comment = await InteractionModel.getCommentById(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ error: 'Komentar nije pronađen' });
+    }
+
+    if (Number(comment.user_id) !== userId) {
+      return res.status(403).json({ error: 'Možete menjati samo svoj komentar' });
+    }
+
+    await InteractionModel.updateComment(commentId, content);
+
+    const updated = await InteractionModel.getCommentById(commentId);
+    return res.json(mapComment(updated));
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri izmeni komentara' });
+  }
+};
+
+const deleteComment = async (req, res) => {
+  const commentId = Number(req.params.commentId);
+  const userId = Number(req.body.userId || req.query.userId);
+
+  if (!isValidId(commentId)) {
+    return res.status(400).json({ error: 'Neispravan commentId' });
+  }
+
+  if (!isValidId(userId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  try {
+    const comment = await InteractionModel.getCommentById(commentId);
+
+    if (!comment) {
+      return res.status(404).json({ error: 'Komentar nije pronađen' });
+    }
+
+    if (Number(comment.user_id) !== userId) {
+      return res.status(403).json({ error: 'Možete obrisati samo svoj komentar' });
+    }
+
+    await InteractionModel.deleteComment(commentId);
+    return res.json({ message: 'Komentar je obrisan' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri brisanju komentara' });
+  }
+};
+
+const getCommentsByPost = async (req, res) => {
+  const postId = Number(req.params.id);
+
+  if (!isValidId(postId)) {
+    return res.status(400).json({ error: 'Neispravan postId' });
+  }
+
+  try {
+    const comments = await InteractionModel.getCommentsByPostId(postId);
+    return res.json(comments.map(mapComment));
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri čitanju komentara' });
+  }
+};
+
+const getCommentsCount = async (req, res) => {
+  const postId = Number(req.params.id);
+
+  if (!isValidId(postId)) {
+    return res.status(400).json({ error: 'Neispravan postId' });
+  }
+
+  try {
+    const count = await InteractionModel.getCommentsCount(postId);
+    return res.json({ count });
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri brojanju komentara' });
+  }
+};
+
+const deleteByPost = async (req, res) => {
+  const postId = Number(req.params.postId);
+
+  if (!isValidId(postId)) {
+    return res.status(400).json({ error: 'Neispravan postId' });
+  }
+
+  try {
+    await InteractionModel.deleteInteractionsByPostId(postId);
+    return res.json({ message: 'Interakcije za objavu su obrisane' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Greška pri brisanju interakcija objave' });
+  }
+};
+
+module.exports = {
+  likePost,
+  unlikePost,
+  getLikesCount,
+  addComment,
+  updateComment,
+  deleteComment,
+  getCommentsByPost,
+  getCommentsCount,
+  deleteByPost
+};
