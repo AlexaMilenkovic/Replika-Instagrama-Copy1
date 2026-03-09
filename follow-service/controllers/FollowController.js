@@ -1,10 +1,38 @@
 const FollowModel = require('../models/FollowModel');
 
+
+// KONFIGURACIJA 
+const USER_INFO_SERVICE_URL = process.env.USER_INFO_SERVICE_URL || 'http://user-info:3013';
+
 const FollowController = {
   // Šalje zahtev za praćenje drugog korisnika.
-  
+  async getProfilePrivacyStatus(userId, requesterToken) {
+    try {
+      const response = await fetch(`${USER_INFO_SERVICE_URL}/users/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${requesterToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.warn(`[FollowController] UserInfo vratio: ${response.status}`);
+        return false;
+      }
+
+      const data = await response.json();
+      return data.user?.is_private || false;
+    } catch (err) {
+      console.error('[FollowController] UserInfo greška:', err.message);
+      return false;
+    }
+  },
+
+  // ============ SAMO IZMENI OVU FUNKCIJU ============
   async followUser(req, res) {
-    const { follower_id, following_id, isPrivate } = req.body;
+    const { follower_id, following_id } = req.body;
+    const token = req.headers.authorization?.split(' ')[1]; // 👈 DODAJ OVO
 
     if (!follower_id || !following_id) {
       return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
@@ -29,7 +57,10 @@ const FollowController = {
         });
       }
 
+      // 👇 ZAMENI OVU LINIJU (stara: const status = isPrivate ? 'PENDING' : 'ACCEPTED';)
+      const isPrivate = await this.getProfilePrivacyStatus(following_id, token);
       const status = isPrivate ? 'PENDING' : 'ACCEPTED';
+      
       await FollowModel.createFollow(follower_id, following_id, status);
 
       return res.status(201).json({
@@ -42,6 +73,7 @@ const FollowController = {
       return res.status(500).json({ error: err.message });
     }
   },
+  
 
   // Prihvata zahtev za praćenje privatnog profila
   async acceptFollow(req, res) {
