@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../config/db');
+const fetch = require('node-fetch');
 const PostModel = require('../models/PostModel');
 
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
