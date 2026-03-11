@@ -185,7 +185,7 @@ const deletePost = async (req, res) => {
     const post = await PostModel.getPostById(postId);
 
     if (!post) {
-      return res.status(404).json({ error: 'Objava nije prnađena' });
+      return res.status(404).json({ error: 'Objava nije pronađena' });
     }
 
     if (!validateOwner(requestUserId, post.user_id)) {
@@ -194,15 +194,25 @@ const deletePost = async (req, res) => {
 
     const media = await PostModel.getPostMedia(postId);
 
+    await PostModel.deletePost(postId);
+
+    const response = await fetch(
+      `${process.env.INTERACTIONS_SERVICE_URL}/interactions/by-post/${postId}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      throw new Error('Greška pri brisanju interakcija');
+    }
+
     for (const item of media) {
       const filePath = toAbsoluteFilePath(item.media_url);
       await safeDeleteFile(filePath);
     }
 
-    await PostModel.deletePost(postId);
-
     return res.json({ message: 'Uspešno brisanje objave' });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Neuspešno brisanje objave' });
   }
 };
