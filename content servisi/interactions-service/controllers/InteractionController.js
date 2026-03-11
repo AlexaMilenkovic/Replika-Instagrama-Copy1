@@ -305,12 +305,23 @@ const deleteComment = async (req, res) => {
       return res.status(404).json({ error: 'Komentar nije pronađen' });
     }
 
-    if (Number(comment.user_id) !== userId) {
-      return res.status(403).json({ error: 'Možete obrisati samo svoj komentar' });
+    const postMeta = await getPostMeta(comment.post_id);
+
+    if (!postMeta) {
+      return res.status(404).json({ error: 'Objava nije pronađena' });
+    }
+
+    const isCommentAuthor = Number(comment.user_id) === userId;
+    const isPostOwner = Number(postMeta.userId) === userId;
+
+    if (!isCommentAuthor && !isPostOwner) {
+      return res.status(403).json({ error: 'Nemate dozvolu da obrišete ovaj komentar' });
     }
 
     await InteractionModel.deleteComment(commentId);
+
     return res.json({ message: 'Komentar je obrisan' });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Greška pri brisanju komentara' });
