@@ -148,21 +148,51 @@ const unlikePost = async (req, res) => {
     await InteractionModel.removeLike(userId, postId);
     return res.json({ message: 'Lajk je uklonjen' });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri uklanjanju lajka' });
   }
 };
 
 const getLikesCount = async (req, res) => {
   const postId = Number(req.params.id);
+  const viewerId = Number(req.query.userId);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
   }
 
+  if (!isValidId(viewerId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
   try {
-    const count = await InteractionModel.getLikesCount(postId);
+    const postMeta = await getPostMeta(postId);
+
+    if (!postMeta) {
+      return res.status(404).json({ error: 'Objava nije pronađena' });
+    }
+
+    const allowed = await canInteractWithPost(viewerId, postMeta.userId);
+
+    if (!allowed) {
+      return res.status(403).json({ error: 'Nemate dozvolu da vidite broj lajkova ove objave' });
+    }
+
+    const likes = await InteractionModel.getLikesByPostId(postId);
+
+    let count = 0;
+
+    for (const like of likes) {
+      const blocked = await getBlockStatus(viewerId, like.user_id);
+
+      if (!blocked) {
+        count++;
+      }
+    }
+
     return res.json({ count });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri brojanju lajkova' });
   }
 };
@@ -241,6 +271,7 @@ const updateComment = async (req, res) => {
     const updated = await InteractionModel.getCommentById(commentId);
     return res.json(mapComment(updated));
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri izmeni komentara' });
   }
 };
@@ -271,36 +302,94 @@ const deleteComment = async (req, res) => {
     await InteractionModel.deleteComment(commentId);
     return res.json({ message: 'Komentar je obrisan' });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri brisanju komentara' });
   }
 };
 
 const getCommentsByPost = async (req, res) => {
   const postId = Number(req.params.id);
+  const viewerId = Number(req.query.userId);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
   }
 
+  if (!isValidId(viewerId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
   try {
+    const postMeta = await getPostMeta(postId);
+
+    if (!postMeta) {
+      return res.status(404).json({ error: 'Objava nije pronađena' });
+    }
+
+    const allowed = await canInteractWithPost(viewerId, postMeta.userId);
+
+    if (!allowed) {
+      return res.status(403).json({ error: 'Nemate dozvolu da vidite komentare ove objave' });
+    }
+
     const comments = await InteractionModel.getCommentsByPostId(postId);
-    return res.json(comments.map(mapComment));
+    const filteredComments = [];
+
+    for (const comment of comments) {
+      const blocked = await getBlockStatus(viewerId, comment.user_id);
+
+      if (!blocked) {
+        filteredComments.push(comment);
+      }
+    }
+
+    return res.json(filteredComments.map(mapComment));
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri čitanju komentara' });
   }
 };
 
 const getCommentsCount = async (req, res) => {
   const postId = Number(req.params.id);
+  const viewerId = Number(req.query.userId);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
   }
 
+  if (!isValidId(viewerId)) {
+    return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
   try {
-    const count = await InteractionModel.getCommentsCount(postId);
+    const postMeta = await getPostMeta(postId);
+
+    if (!postMeta) {
+      return res.status(404).json({ error: 'Objava nije pronađena' });
+    }
+
+    const allowed = await canInteractWithPost(viewerId, postMeta.userId);
+
+    if (!allowed) {
+      return res.status(403).json({ error: 'Nemate dozvolu da vidite broj komentara ove objave' });
+    }
+
+    const comments = await InteractionModel.getCommentsByPostId(postId);
+
+    let count = 0;
+
+    for (const comment of comments) {
+      const blocked = await getBlockStatus(viewerId, comment.user_id);
+
+      if (!blocked) {
+        count++;
+      }
+    }
+
     return res.json({ count });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri brojanju komentara' });
   }
 };
@@ -316,6 +405,7 @@ const deleteByPost = async (req, res) => {
     await InteractionModel.deleteInteractionsByPostId(postId);
     return res.json({ message: 'Interakcije za objavu su obrisane' });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri brisanju interakcija objave' });
   }
 };
