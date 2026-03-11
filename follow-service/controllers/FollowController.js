@@ -5,7 +5,7 @@ const FollowModel = require('../models/FollowModel');
 const USER_INFO_SERVICE_URL = process.env.USER_INFO_SERVICE_URL || 'http://user-info:3013';
 
 const FollowController = {
-  // Šalje zahtev za praćenje drugog korisnika.
+  // Proverava da li je profil korisnika privatan
   async getProfilePrivacyStatus(userId, requesterToken) {
     try {
       const response = await fetch(`${USER_INFO_SERVICE_URL}/users/${userId}`, {
@@ -17,19 +17,18 @@ const FollowController = {
       });
 
       if (!response.ok) {
-        console.warn(`[FollowController] UserInfo vratio: ${response.status}`);
-        return false;
+        throw new Error(`UserInfo servis vratio status: ${response.status}`);
       }
 
       const data = await response.json();
       return data.user?.is_private || false;
     } catch (err) {
       console.error('[FollowController] UserInfo greška:', err.message);
-      return false;
+      throw err;
     }
   },
 
-  // 
+  // Šalje zahtev za praćenje drugog korisnika
   async followUser(req, res) {
     const { follower_id, following_id } = req.body;
     const token = req.headers.authorization?.split(' ')[1]; 
@@ -57,8 +56,15 @@ const FollowController = {
         });
       }
 
-      // 
-      const isPrivate = await this.getProfilePrivacyStatus(following_id, token);
+      // Provera privatnosti profila sa fail-safe mehanizmom
+      let isPrivate;
+      try {
+        isPrivate = await FollowController.getProfilePrivacyStatus(following_id, token);
+      } catch (err) {
+        console.warn('[FollowController] Ne mogu proveriti privatnost, tretiram kao privatan profil.');
+        isPrivate = true;
+      }
+
       const status = isPrivate ? 'PENDING' : 'ACCEPTED';
       
       await FollowModel.createFollow(follower_id, following_id, status);
@@ -79,6 +85,10 @@ const FollowController = {
   async acceptFollow(req, res) {
     const { follower_id, following_id } = req.body;
 
+    if (!follower_id || !following_id) {
+      return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
+    }
+
     try {
       const result = await FollowModel.acceptPendingFollow(follower_id, following_id);
 
@@ -97,6 +107,10 @@ const FollowController = {
   // Odbija zahtev za praćenje privatnog profila
   async rejectFollow(req, res) {
     const { follower_id, following_id } = req.body;
+
+    if (!follower_id || !following_id) {
+      return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
+    }
 
     try {
       const result = await FollowModel.rejectPendingFollow(follower_id, following_id);
@@ -129,6 +143,10 @@ const FollowController = {
   async unfollowUser(req, res) {
     const { follower_id, following_id } = req.body;
 
+    if (!follower_id || !following_id) {
+      return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
+    }
+
     try {
       const result = await FollowModel.deleteFollow(follower_id, following_id);
 
@@ -145,6 +163,10 @@ const FollowController = {
   // Omogućava profilu da ukloni pratioca
   async removeFollower(req, res) {
     const { profile_id, follower_id } = req.body;
+
+    if (!profile_id || !follower_id) {
+      return res.status(400).json({ error: 'profile_id i follower_id su obavezni.' });
+    }
 
     try {
       const result = await FollowModel.deleteFollow(follower_id, profile_id);

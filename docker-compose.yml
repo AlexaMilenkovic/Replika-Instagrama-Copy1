@@ -155,7 +155,46 @@ services:
     depends_on:
       - mysql
 
-      
+  # MySQL za follow-service
+  # -------------------------------------------------------------------------
+  mysql-follow:
+    image: mysql:8.0
+    container_name: instagram-mysql-follow
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: follow_service
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-follow-data:/var/lib/mysql
+      - ./follow-service/sql/baza_followservice.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./follow-service/sql/baza_followservice_primeri.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # follow-service (Node.js + Express, port 3004)
+  follow-service:
+    build:
+      context: ./follow-service
+      dockerfile: Dockerfile
+    container_name: instagram-follow-service
+    environment:
+      DB_HOST: mysql-follow
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: follow_service
+      PORT: 3004
+      USER_INFO_SERVICE_URL: http://user-info:3013
+    ports:
+      - "3004:3004"
+    depends_on:
+      mysql-follow:
+        condition: service_healthy
+
   mysql:
     image: mysql:8.0
     container_name: instagram_mysql
@@ -171,3 +210,4 @@ services:
 
 volumes:
   mysql_data:
+  mysql-follow-data:

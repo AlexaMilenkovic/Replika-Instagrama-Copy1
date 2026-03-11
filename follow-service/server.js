@@ -8,7 +8,7 @@ const FollowController = require('./controllers/FollowController');
 const app = express();
 app.use(express.json()); 
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3004;
 
 // Testna ruta provera
 app.get('/test-db', async (req, res) => {
