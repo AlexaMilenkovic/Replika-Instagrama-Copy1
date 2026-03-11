@@ -104,6 +104,7 @@ const getPostMeta = async (req, res) => {
       userId: post.user_id
     });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Neuspešno preuzimanje metadata objave' });
   }
 };
@@ -118,6 +119,7 @@ const getPostById = async (req, res) => {
 
     return res.json(post);
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Neuspešno preuzimanje objave' });
   }
 };
@@ -133,6 +135,7 @@ const getPostsByUserId = async (req, res) => {
     const posts = await PostModel.getPostsByUserId(userId);
     return res.json(posts);
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Neuspešno preuzimanje objave' });
   }
 };
@@ -165,6 +168,7 @@ const updateCaption = async (req, res) => {
     const updatedPost = await PostModel.getFullPostById(postId);
     return res.json(updatedPost);
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Neuspešno menjanje opisa' });
   }
 };
@@ -258,6 +262,7 @@ const deletePostMedia = async (req, res) => {
 
     return res.json({ message: 'Uspešno brisanje medije' });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Neuspešno brisanje medije' });
   }
 };
