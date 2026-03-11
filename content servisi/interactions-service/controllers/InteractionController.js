@@ -1,3 +1,4 @@
+const fetch = require('node-fetch');
 const InteractionModel = require('../models/InteractionModel');
 
 function isValidId(value) {
