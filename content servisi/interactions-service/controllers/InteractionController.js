@@ -128,6 +128,7 @@ const likePost = async (req, res) => {
 
     return res.status(201).json({ message: 'Objava je uspešno lajkovana' });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri lajkovanju objave' });
   }
 };
@@ -183,9 +184,9 @@ const getLikesCount = async (req, res) => {
     let count = 0;
 
     for (const like of likes) {
-      const blocked = await getBlockStatus(viewerId, like.user_id);
+      const blockedByOwner = await getBlockStatus(postMeta.userId, like.user_id);
 
-      if (!blocked) {
+      if (!blockedByOwner) {
         count++;
       }
     }
@@ -214,6 +215,10 @@ const addComment = async (req, res) => {
     return res.status(400).json({ error: 'Sadržaj komentara je obavezan' });
   }
 
+  if (content.length > 1000) {
+    return res.status(400).json({ error: 'Komentar je predugačak' });
+  }
+
   try {
     const postMeta = await getPostMeta(postId);
 
@@ -234,6 +239,7 @@ const addComment = async (req, res) => {
       message: 'Komentar je dodat'
     });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Greška pri dodavanju komentara' });
   }
 };
@@ -253,6 +259,10 @@ const updateComment = async (req, res) => {
 
   if (!content) {
     return res.status(400).json({ error: 'Sadržaj komentara je obavezan' });
+  }
+
+  if (content.length > 1000) {
+    return res.status(400).json({ error: 'Komentar je predugačak' });
   }
 
   try {
@@ -335,10 +345,11 @@ const getCommentsByPost = async (req, res) => {
     const comments = await InteractionModel.getCommentsByPostId(postId);
     const filteredComments = [];
 
-    for (const comment of comments) {
-      const blocked = await getBlockStatus(viewerId, comment.user_id);
 
-      if (!blocked) {
+    for (const comment of comments) {
+  const blockedByOwner = await getBlockStatus(postMeta.userId, comment.user_id);
+
+      if (!blockedByOwner) {
         filteredComments.push(comment);
       }
     }
@@ -379,10 +390,11 @@ const getCommentsCount = async (req, res) => {
 
     let count = 0;
 
-    for (const comment of comments) {
-      const blocked = await getBlockStatus(viewerId, comment.user_id);
 
-      if (!blocked) {
+    for (const comment of comments) {
+      const blockedByOwner = await getBlockStatus(postMeta.userId, comment.user_id);
+
+      if (!blockedByOwner) {
         count++;
       }
     }
