@@ -32,6 +32,16 @@ async function getLikesCount(postId) {
   return rows[0].count;
 }
 
+async function getLikesByPostId(postId) {
+  const [rows] = await db.execute(
+    `SELECT user_id, post_id, created_at
+     FROM likes
+     WHERE post_id = ?`,
+    [postId]
+  );
+  return rows;
+}
+
 async function addComment(userId, postId, content) {
   const [result] = await db.execute(
     'INSERT INTO comments (user_id, post_id, content) VALUES (?, ?, ?)',
@@ -95,6 +105,7 @@ module.exports = {
   removeLike,
   likeExists,
   getLikesCount,
+  getLikesByPostId,
   addComment,
   getCommentById,
   updateComment,
