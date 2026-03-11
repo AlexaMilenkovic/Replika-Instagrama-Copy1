@@ -29,10 +29,10 @@ const FollowController = {
     }
   },
 
-  // ============ SAMO IZMENI OVU FUNKCIJU ============
+  // 
   async followUser(req, res) {
     const { follower_id, following_id } = req.body;
-    const token = req.headers.authorization?.split(' ')[1]; // 👈 DODAJ OVO
+    const token = req.headers.authorization?.split(' ')[1]; 
 
     if (!follower_id || !following_id) {
       return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
@@ -57,7 +57,7 @@ const FollowController = {
         });
       }
 
-      // 👇 ZAMENI OVU LINIJU (stara: const status = isPrivate ? 'PENDING' : 'ACCEPTED';)
+      // 
       const isPrivate = await this.getProfilePrivacyStatus(following_id, token);
       const status = isPrivate ? 'PENDING' : 'ACCEPTED';
       
