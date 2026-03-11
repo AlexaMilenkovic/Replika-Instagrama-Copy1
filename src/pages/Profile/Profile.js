@@ -12,6 +12,9 @@ function Profile() {
   const [prikaziPrati, setPrikaziPrati] = useState(false);
 
   
+  const [odabranaObjava, setOdabranaObjava] = useState(null);
+  const [trenutnaSlikaIndex, setTrenutnaSlikaIndex] = useState(0);
+
   const [mojProfil, setMojProfil] = useState({
     username: "ksenija_dev",
     fullName: "Ksenija",
@@ -19,7 +22,6 @@ function Profile() {
     avatar: "/slike/radnja.jfif"
   });
 
-  // Lista pratilaca u useState 
   const [listaPratilaca, setListaPratilaca] = useState([
     { id: 1, username: "ana_marija", fullName: "Ana Marija", avatar: "/slike/outfit.jpg" },
     { id: 2, username: "programer_99", fullName: "Marko Marković", avatar: "/slike/radnja.jfif" },
@@ -38,11 +40,22 @@ function Profile() {
     avatar: tipProfila === 'moj' ? mojProfil.avatar : "/slike/outfit.jpg"
   };
 
-  const userPosts = [
-    "/slike/radnja.jfif", "/slike/slikaa.jpg", "/slike/outfit.jpg", "/slike/macka.jfif"
+  
+  const userPostsData = [
+    { 
+      id: 1, 
+      media: ["/slike/radnja.jfif", "/slike/slikaa.jpg"] 
+    },
+    { 
+      id: 2, 
+      media: ["/slike/outfit.jpg"] 
+    },
+    { 
+      id: 3, 
+      media: ["/slike/macka.jfif"] 
+    }
   ];
 
-  // f-ja koja izbacuje osobu sa liste 
   const ukloniPratioca = (id) => {
     setListaPratilaca(listaPratilaca.filter(p => p.id !== id));
   };
@@ -78,6 +91,30 @@ function Profile() {
     setIsEditing(false); 
   };
 
+  // === LOGIKA ZA MODAL I KARUSEL ===
+  const otvoriObjavu = (post) => {
+    setOdabranaObjava(post);
+    setTrenutnaSlikaIndex(0); // Uvek vraća na prvu sliku
+  };
+
+  const zatvoriObjavu = () => {
+    setOdabranaObjava(null);
+  };
+
+  const sledecaSlika = (e) => {
+    e.stopPropagation(); // Sprečava zatvaranje prozora na klik strelice
+    if (trenutnaSlikaIndex < odabranaObjava.media.length - 1) {
+      setTrenutnaSlikaIndex(trenutnaSlikaIndex + 1);
+    }
+  };
+
+  const prethodnaSlika = (e) => {
+    e.stopPropagation();
+    if (trenutnaSlikaIndex > 0) {
+      setTrenutnaSlikaIndex(trenutnaSlikaIndex - 1);
+    }
+  };
+
   const mozeDaVidiSlike = tipProfila === 'moj' || tipProfila === 'javni' || (tipProfila === 'privatni' && statusPracenja === 'prati');
 
   return (
@@ -91,14 +128,13 @@ function Profile() {
 
       <div style={headerStyle}>
         <h2 style={{ margin: 0, fontSize: '18px' }}>{userProfile.username}</h2>
-        <span style={{ fontSize: '20px', cursor: 'pointer' }}>≡</span>
       </div>
 
       <div style={profileInfoStyle}>
         <img src={userProfile.avatar} alt="Avatar" style={avatarStyle} />
         <div style={statsContainerStyle}>
           <div style={statItemStyle}>
-            <strong>{mozeDaVidiSlike ? userPosts.length : 0}</strong><span style={statLabelStyle}>objava</span>
+            <strong>{mozeDaVidiSlike ? userPostsData.length : 0}</strong><span style={statLabelStyle}>objava</span>
           </div>
           <div style={{...statItemStyle, cursor: 'pointer'}} onClick={() => mozeDaVidiSlike && setPrikaziPratioce(true)}>
             <strong>{userProfile.followers}</strong><span style={statLabelStyle}>pratilaca</span>
@@ -140,14 +176,53 @@ function Profile() {
         </div>
       ) : (
         <div style={gridStyle}>
-          {userPosts.map((postImage, index) => (
-            <div key={index} style={gridItemStyle}>
-              <img src={postImage} alt={`Post ${index}`} style={gridImageStyle} />
+          {userPostsData.map((post) => (
+            <div key={post.id} style={gridItemStyle} onClick={() => otvoriObjavu(post)}>
+              <img src={post.media[0]} alt={`Post ${post.id}`} style={gridImageStyle} />
+              {/* Ikonica koja sugerise da objava ima vise slika */}
+              {post.media.length > 1 && (
+                <span style={carouselIconStyle}>❏</span>
+              )}
             </div>
           ))}
         </div>
       )}
 
+      {/* MODAL ZA PRIKAZ OBJAVE (KARUSEL) */}
+      {odabranaObjava && (
+        <div style={modalOverlayStyle} onClick={zatvoriObjavu}>
+          <div style={postModalContentStyle} onClick={(e) => e.stopPropagation()}>
+            <button onClick={zatvoriObjavu} style={closeBtnStyleModal}>✕</button>
+            
+            <div style={carouselContainerStyle}>
+              {trenutnaSlikaIndex > 0 && (
+                <button onClick={prethodnaSlika} style={leftArrowStyle}>&#8249;</button>
+              )}
+              
+              <img 
+                src={odabranaObjava.media[trenutnaSlikaIndex]} 
+                alt="Detaljna objava" 
+                style={postModalImageStyle} 
+              />
+              
+              {trenutnaSlikaIndex < odabranaObjava.media.length - 1 && (
+                <button onClick={sledecaSlika} style={rightArrowStyle}>&#8250;</button>
+              )}
+            </div>
+            
+            {/* Tackice za indikaciju karusela */}
+            {odabranaObjava.media.length > 1 && (
+              <div style={dotsContainerStyle}>
+                {odabranaObjava.media.map((_, idx) => (
+                  <span key={idx} style={{...dotStyle, opacity: idx === trenutnaSlikaIndex ? 1 : 0.5}}>•</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      
       {isEditing && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -184,12 +259,7 @@ function Profile() {
                     </div>
                   </div>
                   {tipProfila === 'moj' && (
-                    <button 
-                      onClick={() => ukloniPratioca(korisnik.id)} 
-                      style={removeBtnStyle}
-                    >
-                      Ukloni
-                    </button>
+                    <button onClick={() => ukloniPratioca(korisnik.id)} style={removeBtnStyle}>Ukloni</button>
                   )}
                 </div>
               ))}
@@ -206,7 +276,6 @@ function Profile() {
               <button onClick={() => setPrikaziPrati(false)} style={closeBtnStyle}>✕</button>
             </div>
             <div style={listContainerStyle}>
-
               {listaPratilaca.map(korisnik => (
                 <div key={korisnik.id} style={userRowStyle}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -226,6 +295,7 @@ function Profile() {
   );
 }
 
+// === STILOVI ===
 const containerStyle = { backgroundColor: '#fafafa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' };
 const devToolsStyle = { width: '100%', maxWidth: '470px', backgroundColor: '#ffeaa7', padding: '5px', display: 'flex', gap: '5px', justifyContent: 'center' };
 const headerStyle = { width: '100%', maxWidth: '470px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', backgroundColor: 'white', borderBottom: '1px solid #dbdbdb' };
@@ -239,11 +309,11 @@ const actionButtonStyle = { width: '100%', maxWidth: '470px', display: 'flex', j
 const editButtonStyle = { width: '100%', padding: '7px 0', backgroundColor: '#efefef', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1 };
 const followButtonStyle = { width: '100%', padding: '7px 0', backgroundColor: '#0095f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1 };
 const followingButtonStyle = { width: '100%', padding: '7px 0', backgroundColor: '#efefef', color: 'black', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1 };
-const gridStyle = { width: '100%', maxWidth: '470px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', backgroundColor: 'white', borderTop: '1px solid #dbdbdb', paddingTop: '2px' };
-const gridItemStyle = { width: '100%', aspectRatio: '1 / 1' }; 
+const gridStyle = { width: '100%', maxWidth: '470px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px', backgroundColor: 'white', borderTop: '1px solid #dbdbdb', paddingTop: '2px', paddingBottom: '70px' };
+const gridItemStyle = { width: '100%', aspectRatio: '1 / 1', cursor: 'pointer', position: 'relative' }; 
 const gridImageStyle = { width: '100%', height: '100%', objectFit: 'cover' };
 const privateProfileContainerStyle = { width: '100%', maxWidth: '470px', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '50px 0', backgroundColor: 'white', borderTop: '1px solid #dbdbdb' };
-const modalOverlayStyle = { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 };
+const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 };
 const modalContentStyle = { backgroundColor: 'white', padding: '20px', borderRadius: '10px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column' };
 const labelStyle = { fontSize: '14px', fontWeight: 'bold', marginTop: '10px', marginBottom: '5px' };
 const inputStyle = { padding: '8px', border: '1px solid #dbdbdb', borderRadius: '5px', outline: 'none' };
@@ -258,5 +328,17 @@ const listContainerStyle = { padding: '10px 15px', overflowY: 'auto' };
 const userRowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' };
 const listAvatarStyle = { width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', marginRight: '15px', border: '1px solid #dbdbdb' };
 const removeBtnStyle = { background: '#efefef', border: 'none', borderRadius: '5px', padding: '5px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' };
+
+// karusel i slika stilovi
+const carouselIconStyle = { position: 'absolute', top: '5px', right: '5px', color: 'white', fontSize: '18px', textShadow: '0 0 5px rgba(0,0,0,0.8)' };
+const postModalContentStyle = { position: 'relative', width: '100%', maxWidth: '470px', display: 'flex', flexDirection: 'column', alignItems: 'center' };
+const carouselContainerStyle = { position: 'relative', width: '100%', aspectRatio: '1/1', backgroundColor: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const postModalImageStyle = { width: '100%', height: '100%', objectFit: 'contain' };
+const closeBtnStyleModal = { position: 'absolute', top: '-40px', right: '10px', background: 'none', border: 'none', color: 'white', fontSize: '30px', cursor: 'pointer' };
+const arrowBase = { position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.7)', border: 'none', borderRadius: '50%', width: '30px', height: '30px', fontSize: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' };
+const leftArrowStyle = { ...arrowBase, left: '10px' };
+const rightArrowStyle = { ...arrowBase, right: '10px' };
+const dotsContainerStyle = { display: 'flex', justifyContent: 'center', gap: '5px', marginTop: '10px' };
+const dotStyle = { color: 'white', fontSize: '20px' };
 
 export default Profile;
