@@ -1,213 +1,211 @@
 services:
+
+  # ─── Infrastructure ───────────────────────────────────────
   redis:
-    image: redis:7
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "5002:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  registration:
-    build: ./authentication/registration
-    image: alexa151/faks-projekat-pisibp:Registration-${IMAGE_TAG}
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-main
+    restart: unless-stopped
     environment:
-      DB_HOST: mysql
-      DB_USER: root
-      DB_PASS: root
-      DB_NAME: instagram_replika
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: secret
-      JWT_REFRESH_SECRET: refreshsecret
-    depends_on:
-      - mysql
-      - redis
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: instagram_replika
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "3000:3000"
+      - "5000:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  auth:
-    build: ./authentication/auth
-    image: alexa151/faks-projekat-pisibp:Auth-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: root
-      DB_PASS: root
-      DB_NAME: instagram_replika
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: secret
-      JWT_REFRESH_SECRET: refreshsecret
-    depends_on:
-      - mysql
-      - redis
-    ports:
-      - "3001:3001"
-
-  login:
-    build: ./authentication/login
-    image: alexa151/faks-projekat-pisibp:Login-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: root
-      DB_PASS: root
-      DB_NAME: instagram_replika
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: secret
-      JWT_REFRESH_SECRET: refreshsecret
-    depends_on:
-      - mysql
-      - redis
-    ports:
-      - "3002:3002"
-
-  logout:
-    build: ./authentication/logout
-    image: alexa151/faks-projekat-pisibp:Logout-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: root
-      DB_PASS: root
-      DB_NAME: instagram_replika
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: secret
-      JWT_REFRESH_SECRET: refreshsecret
-    depends_on:
-      - mysql
-      - redis
-    ports:
-      - "3003:3003"
-  
-  search:
-    build: ./profile/search
-    image: alexa151/faks-projekat-pisibp:Search-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      JWT_SECRET: ${JWT_SECRET}
-    depends_on:
-      - mysql
-    ports:
-      - "3010:3010"
-
-  user-follows:
-    build: ./profile/userFollowing
-    image: alexa151/faks-projekat-pisibp:UserFollows-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      JWT_SECRET: ${JWT_SECRET}
-    depends_on:
-      - mysql
-    ports:
-      - "3011:3011"
-
-  users-following:
-    build: ./profile/userFollowers
-    image: alexa151/faks-projekat-pisibp:UsersFollowing-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      JWT_SECRET: ${JWT_SECRET}
-    depends_on:
-      - mysql
-    ports:
-      - "3012:3012"
-
-  user-info:
-    build: ./profile/userInfo
-    image: alexa151/faks-projekat-pisibp:UserInfo-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      JWT_SECRET: ${JWT_SECRET}
-    depends_on:
-      - mysql
-    ports:
-      - "3013:3013"
-
-  user-posts:
-    build: ./profile/userPosts
-    image: alexa151/faks-projekat-pisibp:UserPosts-${IMAGE_TAG}
-    environment:
-      DB_HOST: mysql
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      JWT_SECRET: ${JWT_SECRET}
-    depends_on:
-      - mysql
-    ports:
-      - "3014:3014"
-  feed:
-    build: ./feed
-    image: alexa151/faks-projekat-pisibp:Feed-${IMAGE_TAG}
-    ports:
-      - "3015:3015"
-    environment:
-      DB_HOST: mysql
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      JWT_SECRET: ${JWT_SECRET}
-    depends_on:
-      - mysql
-
-  # MySQL za follow-service
-  # -------------------------------------------------------------------------
   mysql-follow:
     image: mysql:8.0
-    container_name: instagram-mysql-follow
-    restart: always
+    container_name: mysql-follow
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: follow_service
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "3307:3306"
+      - "5001:3306"
     volumes:
-      - mysql-follow-data:/var/lib/mysql
+      - mysql_follow_data:/var/lib/mysql
       - ./follow-service/sql/baza_followservice.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./follow-service/sql/baza_followservice_primeri.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # follow-service (Node.js + Express, port 3004)
+  # ─── Authentication (combined service) ───────────────────
+  authentication:
+    build: ./authentication_service
+    image: alexa151/faks-projekat-pisibp:Authentication-${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql-main
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      AUTH_DB_NAME: instagram_replika
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PORT: 3001
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Follow service ───────────────────────────────────────
   follow-service:
     build:
       context: ./follow-service
       dockerfile: Dockerfile
-    container_name: instagram-follow-service
+    image: alexa151/faks-projekat-pisibp:FollowService-${IMAGE_TAG}
+    container_name: follow-service
+    restart: unless-stopped
     environment:
       DB_HOST: mysql-follow
-      DB_USER: root
-      DB_PASSWORD: root
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: follow_service
       PORT: 3004
       USER_INFO_SERVICE_URL: http://user-info:3013
-    ports:
-      - "3004:3004"
     depends_on:
       mysql-follow:
         condition: service_healthy
 
-  mysql:
-    image: mysql:8.0
-    container_name: instagram_mysql
-    restart: always
+  # ─── Profile services ─────────────────────────────────────
+  search:
+    build: ./profile/search
+    image: alexa151/faks-projekat-pisibp:Search-${IMAGE_TAG}
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: instagram_replika
+      DB_HOST: mysql-main
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: instagram_replika
+      AUTH_SERVICE_URL: http://authentication:3001
+    depends_on:
+      mysql:
+        condition: service_healthy
+      authentication:
+        condition: service_started
+
+  user-follows:
+    build: ./profile/userFollowing
+    image: alexa151/faks-projekat-pisibp:UserFollows-${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql-main
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: instagram_replika
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  users-following:
+    build: ./profile/userFollowers
+    image: alexa151/faks-projekat-pisibp:UsersFollowing-${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql-main
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: instagram_replika
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  user-info:
+    build: ./profile/userInfo
+    image: alexa151/faks-projekat-pisibp:UserInfo-${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql-main
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: instagram_replika
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  user-posts:
+    build: ./profile/userPosts
+    image: alexa151/faks-projekat-pisibp:UserPosts-${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql-main
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: instagram_replika
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  feed:
+    build: ./feed
+    image: alexa151/faks-projekat-pisibp:Feed-${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql-main
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: instagram_replika
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ─── API Gateway ──────────────────────────────────────────
+  gateway:
+    build: ./gateway
+    image: alexa151/faks-projekat-pisibp:Gateway-${IMAGE_TAG}
+    restart: unless-stopped
     ports:
-      - "3300:3300"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - "3000:3000"
+    environment:
+      AUTH_SERVICE_URL: http://authentication:3001
+      FEED_SERVICE_URL: http://feed:3015
+      SEARCH_SERVICE_URL: http://search:3010
+      USER_INFO_SERVICE_URL: http://user-info:3013
+      USER_FOLLOWERS_SERVICE_URL: http://users-following:3012
+      USER_FOLLOWING_SERVICE_URL: http://user-follows:3011
+      USER_POSTS_SERVICE_URL: http://user-posts:3014
+      FOLLOW_SERVICE_URL: http://follow-service:3004
+    depends_on:
+      - authentication
+      - follow-service
+      - search
+      - user-follows
+      - users-following
+      - user-info
+      - user-posts
+      - feed
 
 volumes:
   mysql_data:
-  mysql-follow-data:
+  mysql_follow_data:
