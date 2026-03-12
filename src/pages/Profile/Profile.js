@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 function Profile() {
   const navigate = useNavigate();
-  const [tipProfila, setTipProfila] = useState('privatni'); 
+  const location = useLocation();
+  const [pretrazeniKorisnik, setPretrazeniKorisnik] = useState(location.state?.korisnik || null);
+
+  const [tipProfila, setTipProfila] = useState(pretrazeniKorisnik ? 'javni' : 'privatni'); 
   const [statusPracenja, setStatusPracenja] = useState('ne_prati'); 
   const [isEditing, setIsEditing] = useState(false);
   const [blokiran, setBlokiran] = useState(false); 
@@ -11,7 +14,6 @@ function Profile() {
   const [prikaziPratioce, setPrikaziPratioce] = useState(false);
   const [prikaziPrati, setPrikaziPrati] = useState(false);
 
-  
   const [odabranaObjava, setOdabranaObjava] = useState(null);
   const [trenutnaSlikaIndex, setTrenutnaSlikaIndex] = useState(0);
 
@@ -31,16 +33,15 @@ function Profile() {
   const [tempPodaci, setTempPodaci] = useState({ username: '', fullName: '', bio: '' });
 
   const userProfile = {
-    username: tipProfila === 'moj' ? mojProfil.username : (tipProfila === 'javni' ? "ana_marija" : "neko_tajni"),
-    fullName: tipProfila === 'moj' ? mojProfil.fullName : (tipProfila === 'javni' ? "Ana Marija" : "Neko"),
+    username: pretrazeniKorisnik ? pretrazeniKorisnik.username : (tipProfila === 'moj' ? mojProfil.username : (tipProfila === 'javni' ? "ana_marija" : "neko_tajni")),
+    fullName: pretrazeniKorisnik ? pretrazeniKorisnik.fullName : (tipProfila === 'moj' ? mojProfil.fullName : (tipProfila === 'javni' ? "Ana Marija" : "Neko")),
     bio: tipProfila === 'moj' ? mojProfil.bio : "Samo pozitivna energija ✨",
-    followers: tipProfila === 'moj' ? listaPratilaca.length : 890,
-    following: tipProfila === 'moj' ? 350 : 400,
-    posts: tipProfila === 'moj' ? 4 : 0,
-    avatar: tipProfila === 'moj' ? mojProfil.avatar : "/slike/outfit.jpg"
+    followers: pretrazeniKorisnik ? 450 : (tipProfila === 'moj' ? listaPratilaca.length : 890),
+    following: pretrazeniKorisnik ? 320 : (tipProfila === 'moj' ? 350 : 400),
+    posts: pretrazeniKorisnik ? 3 : (tipProfila === 'moj' ? 4 : 0),
+    avatar: pretrazeniKorisnik ? pretrazeniKorisnik.avatar : (tipProfila === 'moj' ? mojProfil.avatar : "/slike/outfit.jpg")
   };
 
-  
   const userPostsData = [
     { 
       id: 1, 
@@ -91,10 +92,9 @@ function Profile() {
     setIsEditing(false); 
   };
 
-  // === LOGIKA ZA MODAL I KARUSEL ===
   const otvoriObjavu = (post) => {
     setOdabranaObjava(post);
-    setTrenutnaSlikaIndex(0); // Uvek vraća na prvu sliku
+    setTrenutnaSlikaIndex(0); 
   };
 
   const zatvoriObjavu = () => {
@@ -102,7 +102,7 @@ function Profile() {
   };
 
   const sledecaSlika = (e) => {
-    e.stopPropagation(); // Sprečava zatvaranje prozora na klik strelice
+    e.stopPropagation(); 
     if (trenutnaSlikaIndex < odabranaObjava.media.length - 1) {
       setTrenutnaSlikaIndex(trenutnaSlikaIndex + 1);
     }
@@ -121,9 +121,9 @@ function Profile() {
     <div style={containerStyle}>
       <div style={devToolsStyle}>
         <span style={{fontSize: '12px', fontWeight: 'bold'}}>TESTIRANJE UI: </span> 
-        <button onClick={() => { setTipProfila('moj'); setStatusPracenja('ne_prati'); setBlokiran(false); }}>Moj Profil</button>
-        <button onClick={() => { setTipProfila('javni'); setStatusPracenja('ne_prati'); setBlokiran(false); }}>Javni Profil</button>
-        <button onClick={() => { setTipProfila('privatni'); setStatusPracenja('ne_prati'); setBlokiran(false); }}>Privatni Profil</button>
+        <button onClick={() => { setPretrazeniKorisnik(null); setTipProfila('moj'); setStatusPracenja('ne_prati'); setBlokiran(false); }}>Moj Profil</button>
+        <button onClick={() => { setPretrazeniKorisnik(null); setTipProfila('javni'); setStatusPracenja('ne_prati'); setBlokiran(false); }}>Javni Profil</button>
+        <button onClick={() => { setPretrazeniKorisnik(null); setTipProfila('privatni'); setStatusPracenja('ne_prati'); setBlokiran(false); }}>Privatni Profil</button>
       </div>
 
       <div style={headerStyle}>
@@ -179,7 +179,6 @@ function Profile() {
           {userPostsData.map((post) => (
             <div key={post.id} style={gridItemStyle} onClick={() => otvoriObjavu(post)}>
               <img src={post.media[0]} alt={`Post ${post.id}`} style={gridImageStyle} />
-              {/* Ikonica koja sugerise da objava ima vise slika */}
               {post.media.length > 1 && (
                 <span style={carouselIconStyle}>❏</span>
               )}
@@ -188,7 +187,6 @@ function Profile() {
         </div>
       )}
 
-      {/* MODAL ZA PRIKAZ OBJAVE (KARUSEL) */}
       {odabranaObjava && (
         <div style={modalOverlayStyle} onClick={zatvoriObjavu}>
           <div style={postModalContentStyle} onClick={(e) => e.stopPropagation()}>
@@ -210,7 +208,6 @@ function Profile() {
               )}
             </div>
             
-            {/* Tackice za indikaciju karusela */}
             {odabranaObjava.media.length > 1 && (
               <div style={dotsContainerStyle}>
                 {odabranaObjava.media.map((_, idx) => (
@@ -222,7 +219,6 @@ function Profile() {
         </div>
       )}
 
-      
       {isEditing && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -295,7 +291,6 @@ function Profile() {
   );
 }
 
-// === STILOVI ===
 const containerStyle = { backgroundColor: '#fafafa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' };
 const devToolsStyle = { width: '100%', maxWidth: '470px', backgroundColor: '#ffeaa7', padding: '5px', display: 'flex', gap: '5px', justifyContent: 'center' };
 const headerStyle = { width: '100%', maxWidth: '470px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', backgroundColor: 'white', borderBottom: '1px solid #dbdbdb' };
@@ -329,7 +324,6 @@ const userRowStyle = { display: 'flex', alignItems: 'center', justifyContent: 's
 const listAvatarStyle = { width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', marginRight: '15px', border: '1px solid #dbdbdb' };
 const removeBtnStyle = { background: '#efefef', border: 'none', borderRadius: '5px', padding: '5px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' };
 
-// karusel i slika stilovi
 const carouselIconStyle = { position: 'absolute', top: '5px', right: '5px', color: 'white', fontSize: '18px', textShadow: '0 0 5px rgba(0,0,0,0.8)' };
 const postModalContentStyle = { position: 'relative', width: '100%', maxWidth: '470px', display: 'flex', flexDirection: 'column', alignItems: 'center' };
 const carouselContainerStyle = { position: 'relative', width: '100%', aspectRatio: '1/1', backgroundColor: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center' };
