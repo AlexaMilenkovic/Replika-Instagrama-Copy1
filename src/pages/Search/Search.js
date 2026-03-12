@@ -43,7 +43,7 @@ function Search() {
             <div 
               key={korisnik.id} 
               style={userRowStyle} 
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/profile', { state: { korisnik } })}
             >
               <img src={korisnik.avatar} alt="avatar" style={avatarStyle} />
               <div>
