@@ -165,8 +165,8 @@ function Timeline() {
               <span onClick={() => toggleLajk(obj.id)} style={{ cursor: 'pointer', marginRight: '15px', userSelect: 'none' }}>
                 {lajkovane[obj.id] ? '♥' : '♡'}
               </span>
-              <span onClick={() => toggleKomentare(obj.id)} style={{ cursor: 'pointer', userSelect: 'none', fontSize: '20px' }}>
-                💬
+              <span onClick={() => toggleKomentare(obj.id)} style={{ cursor: 'pointer', userSelect: 'none', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                💬 <span style={{ fontSize: '16px' }}>{obj.komentari.length}</span>
               </span>
             </div>
 
