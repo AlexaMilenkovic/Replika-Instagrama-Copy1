@@ -28,8 +28,8 @@ async function getPostMeta(postId) {
   return response.json();
 }
 
-async function getBlockStatus(viewerId, ownerId) {
-  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/block-status?userId=${viewerId}&targetUserId=${ownerId}`;
+async function getBlockStatus(userA, userB) {
+  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/block-status?userA=${userA}&userB=${userB}`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -38,16 +38,11 @@ async function getBlockStatus(viewerId, ownerId) {
 
   const data = await response.json();
 
-  return (
-    normalizeBoolean(data.blocked) ||
-    normalizeBoolean(data.isBlocked) ||
-    normalizeBoolean(data.blockExists) ||
-    normalizeBoolean(data.areBlocked)
-  );
+  return !!data.blocked;
 }
 
 async function getRelationshipStatus(viewerId, ownerId) {
-  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/relationship-status?userId=${viewerId}&targetUserId=${ownerId}`;
+  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/relationship-status?follower_id=${viewerId}&following_id=${ownerId}`;
   const response = await fetch(url);
 
   if (!response.ok) {
