@@ -26,7 +26,7 @@ services:
       - "5000:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./sql:/docker-entrypoint-initdb.d
+      - ./authentication_service/db/auth_db.sql:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
@@ -180,31 +180,6 @@ services:
       mysql:
         condition: service_healthy
 
-  # ─── API Gateway ──────────────────────────────────────────
-  gateway:
-    build: ./gateway
-    image: alexa151/faks-projekat-pisibp:Gateway-${IMAGE_TAG}
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      AUTH_SERVICE_URL: http://authentication:3001
-      FEED_SERVICE_URL: http://feed:3015
-      SEARCH_SERVICE_URL: http://search:3010
-      USER_INFO_SERVICE_URL: http://user-info:3013
-      USER_FOLLOWERS_SERVICE_URL: http://users-following:3012
-      USER_FOLLOWING_SERVICE_URL: http://user-follows:3011
-      USER_POSTS_SERVICE_URL: http://user-posts:3014
-      FOLLOW_SERVICE_URL: http://follow-service:3004
-    depends_on:
-      - authentication
-      - follow-service
-      - search
-      - user-follows
-      - users-following
-      - user-info
-      - user-posts
-      - feed
 
 volumes:
   mysql_data:
