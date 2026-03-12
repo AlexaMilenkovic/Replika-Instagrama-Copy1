@@ -1,21 +1,20 @@
 const fetch = require('node-fetch');
 const InteractionModel = require('../models/InteractionModel');
 
+const POST_SERVICE_URL = process.env.POST_SERVICE_URL || 'http://post-service:3002';
+const RELATIONSHIP_SERVICE_URL = process.env.RELATIONSHIP_SERVICE_URL || 'http://follow-service:3004';
+const USER_INFO_SERVICE_URL = process.env.USER_INFO_SERVICE_URL || 'http://user-info:3013';
+
 function isValidId(value) {
   return !Number.isNaN(Number(value)) && Number(value) > 0;
 }
 
-function normalizeBoolean(value) {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value === 1;
-  if (typeof value === 'string') {
-    return value === 'true' || value === '1';
-  }
-  return false;
+function getBearerToken(req) {
+  return req.headers.authorization?.split(' ')[1] || null;
 }
 
 async function getPostMeta(postId) {
-  const response = await fetch(`${process.env.POST_SERVICE_URL}/posts/${postId}/meta`);
+  const response = await fetch(`${POST_SERVICE_URL}/posts/${postId}/meta`);
 
   if (response.status === 404) {
     return null;
@@ -29,7 +28,7 @@ async function getPostMeta(postId) {
 }
 
 async function getBlockStatus(userA, userB) {
-  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/block-status?userA=${userA}&userB=${userB}`;
+  const url = `${RELATIONSHIP_SERVICE_URL}/block-status?userA=${userA}&userB=${userB}`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -42,7 +41,7 @@ async function getBlockStatus(userA, userB) {
 }
 
 async function getRelationshipStatus(viewerId, ownerId) {
-  const url = `${process.env.RELATIONSHIP_SERVICE_URL}/relationship-status?follower_id=${viewerId}&following_id=${ownerId}`;
+  const url = `${RELATIONSHIP_SERVICE_URL}/relationship-status?follower_id=${viewerId}&following_id=${ownerId}`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -51,20 +50,37 @@ async function getRelationshipStatus(viewerId, ownerId) {
 
   const data = await response.json();
 
-  const isPublic =
-    normalizeBoolean(data.isPublic) ||
-    normalizeBoolean(data.publicProfile) ||
-    normalizeBoolean(data.isPublicProfile);
-
-  const isFollowing =
-    normalizeBoolean(data.isFollowing) ||
-    normalizeBoolean(data.following) ||
-    normalizeBoolean(data.follows);
-
-  return { isPublic, isFollowing };
+  return {
+    blocked: !!data.blocked,
+    followStatus: data.followStatus || 'NONE',
+    isFollowing: data.followStatus === 'ACCEPTED'
+  };
 }
 
-async function canInteractWithPost(viewerId, ownerId) {
+async function getProfileVisibility(ownerId, token) {
+  const response = await fetch(`${USER_INFO_SERVICE_URL}/users/${ownerId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error('Greška pri komunikaciji sa userInfo servisom');
+  }
+
+  const data = await response.json();
+
+  return {
+    isPublic: !data.user.is_private
+  };
+}
+
+async function canInteractWithPost(viewerId, ownerId, token) {
   if (Number(viewerId) === Number(ownerId)) {
     return true;
   }
@@ -75,7 +91,13 @@ async function canInteractWithPost(viewerId, ownerId) {
   }
 
   const relationship = await getRelationshipStatus(viewerId, ownerId);
-  return relationship.isPublic || relationship.isFollowing;
+  const visibility = await getProfileVisibility(ownerId, token);
+
+  if (!visibility) {
+    return false;
+  }
+
+  return visibility.isPublic || relationship.isFollowing;
 }
 
 function mapComment(comment) {
@@ -92,6 +114,7 @@ function mapComment(comment) {
 const likePost = async (req, res) => {
   const postId = Number(req.params.id);
   const userId = Number(req.body.userId);
+  const token = getBearerToken(req);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
@@ -101,6 +124,10 @@ const likePost = async (req, res) => {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
   }
 
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
+  }
+
   try {
     const postMeta = await getPostMeta(postId);
 
@@ -108,7 +135,7 @@ const likePost = async (req, res) => {
       return res.status(404).json({ error: 'Objava nije pronađena' });
     }
 
-    const allowed = await canInteractWithPost(userId, postMeta.userId);
+    const allowed = await canInteractWithPost(userId, postMeta.userId, token);
 
     if (!allowed) {
       return res.status(403).json({ error: 'Nemate dozvolu da lajkujete ovu objavu' });
@@ -128,9 +155,11 @@ const likePost = async (req, res) => {
   }
 };
 
+
 const unlikePost = async (req, res) => {
   const postId = Number(req.params.id);
   const userId = Number(req.body.userId);
+  const token = getBearerToken(req);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
@@ -138,6 +167,10 @@ const unlikePost = async (req, res) => {
 
   if (!isValidId(userId)) {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
   }
 
   try {
@@ -152,6 +185,7 @@ const unlikePost = async (req, res) => {
 const getLikesCount = async (req, res) => {
   const postId = Number(req.params.id);
   const viewerId = Number(req.query.userId);
+  const token = getBearerToken(req);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
@@ -161,6 +195,10 @@ const getLikesCount = async (req, res) => {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
   }
 
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
+  }
+
   try {
     const postMeta = await getPostMeta(postId);
 
@@ -168,7 +206,7 @@ const getLikesCount = async (req, res) => {
       return res.status(404).json({ error: 'Objava nije pronađena' });
     }
 
-    const allowed = await canInteractWithPost(viewerId, postMeta.userId);
+    const allowed = await canInteractWithPost(viewerId, postMeta.userId, token);
 
     if (!allowed) {
       return res.status(403).json({ error: 'Nemate dozvolu da vidite broj lajkova ove objave' });
@@ -193,10 +231,12 @@ const getLikesCount = async (req, res) => {
   }
 };
 
+
 const addComment = async (req, res) => {
   const postId = Number(req.params.id);
   const userId = Number(req.body.userId);
   const content = req.body.content?.trim();
+  const token = getBearerToken(req);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
@@ -204,6 +244,10 @@ const addComment = async (req, res) => {
 
   if (!isValidId(userId)) {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
   }
 
   if (!content) {
@@ -221,7 +265,7 @@ const addComment = async (req, res) => {
       return res.status(404).json({ error: 'Objava nije pronađena' });
     }
 
-    const allowed = await canInteractWithPost(userId, postMeta.userId);
+    const allowed = await canInteractWithPost(userId, postMeta.userId, token);
 
     if (!allowed) {
       return res.status(403).json({ error: 'Nemate dozvolu da komentarišete ovu objavu' });
@@ -239,10 +283,12 @@ const addComment = async (req, res) => {
   }
 };
 
+
 const updateComment = async (req, res) => {
   const commentId = Number(req.params.commentId);
   const userId = Number(req.body.userId);
   const content = req.body.content?.trim();
+  const token = getBearerToken(req);
 
   if (!isValidId(commentId)) {
     return res.status(400).json({ error: 'Neispravan commentId' });
@@ -250,6 +296,10 @@ const updateComment = async (req, res) => {
 
   if (!isValidId(userId)) {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
   }
 
   if (!content) {
@@ -284,6 +334,7 @@ const updateComment = async (req, res) => {
 const deleteComment = async (req, res) => {
   const commentId = Number(req.params.commentId);
   const userId = Number(req.body.userId || req.query.userId);
+  const token = getBearerToken(req);
 
   if (!isValidId(commentId)) {
     return res.status(400).json({ error: 'Neispravan commentId' });
@@ -291,6 +342,10 @@ const deleteComment = async (req, res) => {
 
   if (!isValidId(userId)) {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
   }
 
   try {
@@ -326,6 +381,7 @@ const deleteComment = async (req, res) => {
 const getCommentsByPost = async (req, res) => {
   const postId = Number(req.params.id);
   const viewerId = Number(req.query.userId);
+  const token = getBearerToken(req);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
@@ -335,6 +391,10 @@ const getCommentsByPost = async (req, res) => {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
   }
 
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
+  }
+
   try {
     const postMeta = await getPostMeta(postId);
 
@@ -342,7 +402,7 @@ const getCommentsByPost = async (req, res) => {
       return res.status(404).json({ error: 'Objava nije pronađena' });
     }
 
-    const allowed = await canInteractWithPost(viewerId, postMeta.userId);
+    const allowed = await canInteractWithPost(viewerId, postMeta.userId, token);
 
     if (!allowed) {
       return res.status(403).json({ error: 'Nemate dozvolu da vidite komentare ove objave' });
@@ -351,9 +411,8 @@ const getCommentsByPost = async (req, res) => {
     const comments = await InteractionModel.getCommentsByPostId(postId);
     const filteredComments = [];
 
-
     for (const comment of comments) {
-  const blockedByOwner = await getBlockStatus(postMeta.userId, comment.user_id);
+      const blockedByOwner = await getBlockStatus(postMeta.userId, comment.user_id);
 
       if (!blockedByOwner) {
         filteredComments.push(comment);
@@ -370,6 +429,7 @@ const getCommentsByPost = async (req, res) => {
 const getCommentsCount = async (req, res) => {
   const postId = Number(req.params.id);
   const viewerId = Number(req.query.userId);
+  const token = getBearerToken(req);
 
   if (!isValidId(postId)) {
     return res.status(400).json({ error: 'Neispravan postId' });
@@ -379,6 +439,10 @@ const getCommentsCount = async (req, res) => {
     return res.status(400).json({ error: 'userId je obavezan i mora biti broj' });
   }
 
+  if (!token) {
+    return res.status(401).json({ error: 'Access token missing' });
+  }
+
   try {
     const postMeta = await getPostMeta(postId);
 
@@ -386,7 +450,7 @@ const getCommentsCount = async (req, res) => {
       return res.status(404).json({ error: 'Objava nije pronađena' });
     }
 
-    const allowed = await canInteractWithPost(viewerId, postMeta.userId);
+    const allowed = await canInteractWithPost(viewerId, postMeta.userId, token);
 
     if (!allowed) {
       return res.status(403).json({ error: 'Nemate dozvolu da vidite broj komentara ove objave' });
@@ -395,7 +459,6 @@ const getCommentsCount = async (req, res) => {
     const comments = await InteractionModel.getCommentsByPostId(postId);
 
     let count = 0;
-
 
     for (const comment of comments) {
       const blockedByOwner = await getBlockStatus(postMeta.userId, comment.user_id);
@@ -411,6 +474,7 @@ const getCommentsCount = async (req, res) => {
     return res.status(500).json({ error: 'Greška pri brojanju komentara' });
   }
 };
+
 
 const deleteByPost = async (req, res) => {
   const postId = Number(req.params.postId);
