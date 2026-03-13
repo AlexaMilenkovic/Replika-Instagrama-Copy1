@@ -300,7 +300,7 @@ services:
         condition: service_healthy
 
   # ─── API Gateway ──────────────────────────────────────────
-    gateway:
+  gateway:
     build: ./api-gateway
     image: alexa151/faks-proyect-pisibp:Gateway-${IMAGE_TAG}
     restart: unless-stopped
