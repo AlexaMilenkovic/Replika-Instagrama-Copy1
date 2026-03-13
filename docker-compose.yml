@@ -300,12 +300,12 @@ services:
         condition: service_healthy
 
   # ─── API Gateway ──────────────────────────────────────────
-  gateway:
-    build: ./gateway
+    gateway:
+    build: ./api-gateway
     image: alexa151/faks-proyect-pisibp:Gateway-${IMAGE_TAG}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "4000:4000"
     environment:
       AUTH_SERVICE_URL: http://authentication:3001
       PROFILE_SERVICE_URL: http://profile:3010
@@ -315,7 +315,8 @@ services:
       FEED_SERVICE_URL: http://feed:3015
       FOLLOW_SERVICE_URL: http://follow-service:3004
       POST_SERVICE_URL: http://post-service:3006
-      # INTERACTIONS_SERVICE_URL: http://interactions-service:3005
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: redis://redis:6379
     depends_on:
       - authentication
       - profile
