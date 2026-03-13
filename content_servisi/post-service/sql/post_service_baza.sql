@@ -1,4 +1,4 @@
-CREATE DATABASE post_service_db;
+CREATE DATABASE IF NOT EXISTS post_service_db;
 USE post_service_db;
 
 CREATE TABLE posts (
@@ -14,7 +14,7 @@ CREATE TABLE post_media (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   post_id BIGINT NOT NULL,
   position INT NOT NULL, 
-  media_url VARCHAR(500) NOT NULL,       
+  media_key VARCHAR(500) NOT NULL,       
   media_type ENUM('image','video') NOT NULL,
   media_size_bytes BIGINT NOT NULL, 
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

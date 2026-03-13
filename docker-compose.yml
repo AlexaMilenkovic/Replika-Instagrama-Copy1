@@ -13,6 +13,20 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
   mysql:
     image: mysql:8.0
     container_name: mysql-main
@@ -50,6 +64,36 @@ services:
       - ./follow-service/sql/baza_followservice_primeri.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mysql-post:
+    image: mysql:8.0
+    container_name: mysql-post
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: post_service_db
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5003:3306"
+    volumes:
+      - mysql_post_data:/var/lib/mysql
+      - ./content_servisi/post-service/sql/post_service_baza.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${DB_PASSWORD}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -92,6 +136,36 @@ services:
     depends_on:
       mysql-follow:
         condition: service_healthy
+
+  # ─── Post service ─────────────────────────────────────
+
+  post-service:
+    build:
+      context: ./content_servisi/post-service
+      dockerfile: Dockerfile
+    image: alexa151/faks-projekat-pisibp:PostService-${IMAGE_TAG}
+    container_name: post-service
+    ports:
+      - "3003:3000"
+    restart: unless-stopped
+    env_file:
+      - ./content_servisi/post-service/.env
+    environment:
+      PORT: 3000
+      DB_HOST: mysql-post
+      DB_NAME: post_service_db
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_BUCKET: posts-media
+      MINIO_PUBLIC_URL: http://minio:9000
+      INTERACTIONS_SERVICE_URL: http://interactions-service:3000
+    depends_on:
+      mysql-post:
+        condition: service_healthy
+    volumes:
+      - ./content_servisi/post-service/uploads:/app/uploads
 
   # ─── Profile services ─────────────────────────────────────
   search:
@@ -184,3 +258,5 @@ services:
 volumes:
   mysql_data:
   mysql_follow_data:
+  mysql_post_data:
+  minio_data:

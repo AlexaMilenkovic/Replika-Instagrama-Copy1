@@ -9,11 +9,11 @@ async function createPost(userId, caption, conn = db) {
   return result.insertId;
 }
 
-async function addMedia(postId, position, mediaUrl, mediaType, mediaSizeBytes, conn = db) {
+async function addMedia(postId, position, mediaKey, mediaType, mediaSizeBytes, conn = db) {
   const [result] = await conn.execute(
-    `INSERT INTO post_media (post_id, position, media_url, media_type, media_size_bytes)
+    `INSERT INTO post_media (post_id, position, media_key, media_type, media_size_bytes)
      VALUES (?, ?, ?, ?, ?)`,
-    [postId, position, mediaUrl, mediaType, mediaSizeBytes]
+    [postId, position, mediaKey, mediaType, mediaSizeBytes]
   );
 
   return result.insertId;
@@ -32,7 +32,7 @@ async function getPostById(postId) {
 
 async function getPostMedia(postId) {
   const [rows] = await db.execute(
-    `SELECT id, post_id, position, media_url, media_type, media_size_bytes, created_at
+    `SELECT id, post_id, position, media_key, media_type, media_size_bytes, created_at
      FROM post_media
      WHERE post_id = ?
      ORDER BY position ASC`,
@@ -103,7 +103,7 @@ async function deletePost(postId) {
 
 async function getMediaById(mediaId) {
   const [rows] = await db.execute(
-    `SELECT id, post_id, position, media_url, media_type, media_size_bytes, created_at
+    `SELECT id, post_id, position, media_key, media_type, media_size_bytes, created_at
      FROM post_media
      WHERE id = ?`,
     [mediaId]
