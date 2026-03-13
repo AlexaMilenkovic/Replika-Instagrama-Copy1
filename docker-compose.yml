@@ -176,7 +176,7 @@ services:
 
   # ─── Profile (search + user info) ────────────────────────
   profile:
-    build: ./profile_service
+    build: ./profile
     image: alexa151/faks-projekat-pisibp:Profile-${IMAGE_TAG}
     restart: unless-stopped
     environment:
