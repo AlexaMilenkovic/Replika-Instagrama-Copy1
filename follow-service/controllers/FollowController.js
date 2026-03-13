@@ -1,37 +1,41 @@
 const FollowModel = require('../models/FollowModel');
 
+// Konfiguracija za Profile servis 
+const PROFILE_SERVICE_URL = process.env.PROFILE_SERVICE_URL || 'http://profile-service:3013';
 
-// KONFIGURACIJA 
-const USER_INFO_SERVICE_URL = process.env.USER_INFO_SERVICE_URL || 'http://user-info:3013';
+// Proverava da li je profil korisnika privatan 
+async function getProfilePrivacyStatus(userId, req) {
+  try {
+    const response = await fetch(`${PROFILE_SERVICE_URL}/users/${userId}`, {
+      method: 'GET',
+      headers: {
+        'x-user-id': req.headers['x-user-id'],      
+        'x-username': req.headers['x-username'] || '',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Korisnik ne postoji!');
+      }
+      throw new Error(`Profile servis vratio status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.user?.is_private || false;
+  } catch (err) {
+    console.error('[FollowController] Profile info greška:', err.message);
+    throw err;
+  }
+}
 
 const FollowController = {
-  // Proverava da li je profil korisnika privatan
-  async getProfilePrivacyStatus(userId, requesterToken) {
-    try {
-      const response = await fetch(`${USER_INFO_SERVICE_URL}/users/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${requesterToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`UserInfo servis vratio status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.user?.is_private || false;
-    } catch (err) {
-      console.error('[FollowController] UserInfo greška:', err.message);
-      throw err;
-    }
-  },
 
   // Šalje zahtev za praćenje drugog korisnika
   async followUser(req, res) {
-    const { follower_id, following_id } = req.body;
-    const token = req.headers.authorization?.split(' ')[1]; 
+    const follower_id = req.headers['x-user-id'];        
+    const following_id = req.body.following_id;          
 
     if (!follower_id || !following_id) {
       return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
@@ -42,6 +46,13 @@ const FollowController = {
     }
 
     try {
+      // Proveri da li korisnik koji se prati postoji
+      try {
+        await getProfilePrivacyStatus(following_id, req);
+      } catch (err) {
+        return res.status(400).json({ error: 'Nevalidan following_id - korisnik ne postoji.' });
+      }
+
       const blocked = await FollowModel.isBlocked(follower_id, following_id);
       if (blocked) {
         return res.status(403).json({
@@ -56,17 +67,16 @@ const FollowController = {
         });
       }
 
-      // Provera privatnosti profila sa fail-safe mehanizmom
+      // Provera privatnosti profila
       let isPrivate;
       try {
-        isPrivate = await FollowController.getProfilePrivacyStatus(following_id, token);
+        isPrivate = await getProfilePrivacyStatus(following_id, req);
       } catch (err) {
         console.warn('[FollowController] Ne mogu proveriti privatnost, tretiram kao privatan profil.');
         isPrivate = true;
       }
 
       const status = isPrivate ? 'PENDING' : 'ACCEPTED';
-      
       await FollowModel.createFollow(follower_id, following_id, status);
 
       return res.status(201).json({
@@ -79,11 +89,11 @@ const FollowController = {
       return res.status(500).json({ error: err.message });
     }
   },
-  
 
   // Prihvata zahtev za praćenje privatnog profila
   async acceptFollow(req, res) {
-    const { follower_id, following_id } = req.body;
+    const follower_id = req.headers['x-user-id'];
+    const following_id = req.body.following_id;
 
     if (!follower_id || !following_id) {
       return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
@@ -106,7 +116,8 @@ const FollowController = {
 
   // Odbija zahtev za praćenje privatnog profila
   async rejectFollow(req, res) {
-    const { follower_id, following_id } = req.body;
+    const follower_id = req.headers['x-user-id'];
+    const following_id = req.body.following_id;
 
     if (!follower_id || !following_id) {
       return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
@@ -129,7 +140,7 @@ const FollowController = {
 
   // Vraća listu svih pending zahteva za praćenje za određenog korisnika
   async getNotifications(req, res) {
-    const { userId } = req.params;
+    const userId = req.headers['x-user-id'];
 
     try {
       const requests = await FollowModel.getPendingRequests(userId);
@@ -141,7 +152,8 @@ const FollowController = {
 
   // Prekid praćenja između dva korisnika
   async unfollowUser(req, res) {
-    const { follower_id, following_id } = req.body;
+    const follower_id = req.headers['x-user-id'];
+    const following_id = req.body.following_id;
 
     if (!follower_id || !following_id) {
       return res.status(400).json({ error: 'follower_id i following_id su obavezni.' });
@@ -162,7 +174,8 @@ const FollowController = {
 
   // Omogućava profilu da ukloni pratioca
   async removeFollower(req, res) {
-    const { profile_id, follower_id } = req.body;
+    const profile_id = req.headers['x-user-id'];     
+    const follower_id = req.body.follower_id;        
 
     if (!profile_id || !follower_id) {
       return res.status(400).json({ error: 'profile_id i follower_id su obavezni.' });
@@ -183,7 +196,8 @@ const FollowController = {
 
   // Blokira korisnika i automatski briše follow relacije u oba smera
   async blockUser(req, res) {
-    const { blocker_id, blocked_id } = req.body;
+    const blocker_id = req.headers['x-user-id'];
+    const blocked_id = req.body.blocked_id;
 
     if (!blocker_id || !blocked_id) {
       return res.status(400).json({ error: 'blocker_id i blocked_id su obavezni.' });
@@ -211,7 +225,7 @@ const FollowController = {
 
   // Vraća broj pratilaca i broj profila koje korisnik prati
   async getStats(req, res) {
-    const { userId } = req.params;
+    const userId = req.headers['x-user-id'];
 
     try {
       const stats = await FollowModel.getFollowStats(userId);
@@ -223,7 +237,8 @@ const FollowController = {
 
   // Proverava da li postoji blok između dva korisnika
   async getBlockStatus(req, res) {
-    const { userA, userB } = req.query;
+    const userA = req.headers['x-user-id'];
+    const userB = req.query.userB;
 
     try {
       const blocked = await FollowModel.isBlocked(userA, userB);
@@ -236,7 +251,8 @@ const FollowController = {
   // Vraća status odnosa između dva korisnika:
   // da li postoji blok i kakav je follow status
   async getRelationshipStatus(req, res) {
-    const { follower_id, following_id } = req.query;
+    const follower_id = req.headers['x-user-id'];
+    const following_id = req.query.following_id;
 
     try {
       const blocked = await FollowModel.isBlocked(follower_id, following_id);
