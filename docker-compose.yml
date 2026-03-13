@@ -6,27 +6,47 @@ services:
     container_name: redis
     restart: unless-stopped
     ports:
-      - "5002:6379"
+      - "5100:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  mysql:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Databases (5000-5005) ────────────────────────────────
+  mysql-auth:
     image: mysql:8.0
-    container_name: mysql-main
+    container_name: mysql-auth
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: instagram_replika
+      MYSQL_DATABASE: auth_db
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5000:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./authentication_service/db/auth_db.sql:/docker-entrypoint-initdb.d
+      - mysql_auth_data:/var/lib/mysql
+      - ./authentication_service/db/auth_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
@@ -39,7 +59,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: follow_service
+      MYSQL_DATABASE: follow_db
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
@@ -50,29 +70,128 @@ services:
       - ./follow-service/sql/baza_followservice_primeri.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 10
 
-  # ─── Authentication (combined service) ───────────────────
+  mysql-user-follows:
+    image: mysql:8.0
+    container_name: mysql-user-follows
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: user_follows_db
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5002:3306"
+    volumes:
+      - mysql_user_follows_data:/var/lib/mysql
+      - ./sql/user_follows_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-post:
+    image: mysql:8.0
+    container_name: mysql-post
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: post_service_db
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5003:3306"
+    volumes:
+      - mysql_post_data:/var/lib/mysql
+      - ./content_servisi/post-service/sql/post_service_baza.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-user-posts:
+    image: mysql:8.0
+    container_name: mysql-user-posts
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: user_posts_db
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5004:3306"
+    volumes:
+      - mysql_user_posts_data:/var/lib/mysql
+      - ./sql/user_posts_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-feed:
+    image: mysql:8.0
+    container_name: mysql-feed
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: feed_db
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5005:3306"
+    volumes:
+      - mysql_feed_data:/var/lib/mysql
+      - ./sql/feed_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── Authentication ───────────────────────────────────────
   authentication:
     build: ./authentication_service
     image: alexa151/faks-projekat-pisibp:Authentication-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-main
+      DB_HOST: mysql-auth
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      AUTH_DB_NAME: instagram_replika
+      AUTH_DB_NAME: auth_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       PORT: 3001
     depends_on:
-      mysql:
+      mysql-auth:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # ─── Profile (search + user info) ────────────────────────
+  profile:
+    build: ./profile_service
+    image: alexa151/faks-projekat-pisibp:Profile-${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql-auth
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: auth_db
+      JWT_SECRET: ${JWT_SECRET}
+      USER_FOLLOWS_URL: http://user-follows:3011
+      PORT: 3010
+    depends_on:
+      mysql-auth:
+        condition: service_healthy
+      user-follows:
+        condition: service_started
 
   # ─── Follow service ───────────────────────────────────────
   follow-service:
@@ -86,42 +205,26 @@ services:
       DB_HOST: mysql-follow
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: follow_service
+      DB_NAME: follow_db
       PORT: 3004
-      USER_INFO_SERVICE_URL: http://user-info:3013
+      USER_INFO_SERVICE_URL: http://profile:3010
     depends_on:
       mysql-follow:
         condition: service_healthy
 
-  # ─── Profile services ─────────────────────────────────────
-  search:
-    build: ./profile/search
-    image: alexa151/faks-projekat-pisibp:Search-${IMAGE_TAG}
-    restart: unless-stopped
-    environment:
-      DB_HOST: mysql-main
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      AUTH_SERVICE_URL: http://authentication:3001
-    depends_on:
-      mysql:
-        condition: service_healthy
-      authentication:
-        condition: service_started
-
+  # ─── User follows / followers ─────────────────────────────
   user-follows:
     build: ./profile/userFollowing
     image: alexa151/faks-projekat-pisibp:UserFollows-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-main
+      DB_HOST: mysql-user-follows
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
+      DB_NAME: user_follows_db
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      mysql:
+      mysql-user-follows:
         condition: service_healthy
 
   users-following:
@@ -129,58 +232,106 @@ services:
     image: alexa151/faks-projekat-pisibp:UsersFollowing-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-main
+      DB_HOST: mysql-user-follows
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
+      DB_NAME: user_follows_db
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      mysql:
+      mysql-user-follows:
         condition: service_healthy
 
-  user-info:
-    build: ./profile/userInfo
-    image: alexa151/faks-projekat-pisibp:UserInfo-${IMAGE_TAG}
+  # ─── Post service ─────────────────────────────────────────
+  post-service:
+    build:
+      context: ./content_servisi/post-service
+      dockerfile: Dockerfile
+    image: alexa151/faks-projekat-pisibp:PostService-${IMAGE_TAG}
+    container_name: post-service
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-main
+      PORT: 3006
+      DB_HOST: mysql-post
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
-      JWT_SECRET: ${JWT_SECRET}
+      DB_NAME: post_service_db
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_USER}
+      MINIO_SECRET_KEY: ${MINIO_PASSWORD}
+      MINIO_BUCKET: posts-media
+      MINIO_PUBLIC_URL: http://minio:9000
+      INTERACTIONS_SERVICE_URL: http://interactions-service:3005
+      MAX_FILES: 20
     depends_on:
-      mysql:
+      mysql-post:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
+  # ─── User posts ───────────────────────────────────────────
   user-posts:
     build: ./profile/userPosts
     image: alexa151/faks-projekat-pisibp:UserPosts-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-main
+      DB_HOST: mysql-user-posts
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
+      DB_NAME: user_posts_db
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      mysql:
+      mysql-user-posts:
         condition: service_healthy
 
+  # ─── Feed ─────────────────────────────────────────────────
   feed:
     build: ./feed
     image: alexa151/faks-projekat-pisibp:Feed-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-main
+      DB_HOST: mysql-feed
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: instagram_replika
+      DB_NAME: feed_db
       JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      mysql:
+      mysql-feed:
         condition: service_healthy
 
+  # ─── API Gateway ──────────────────────────────────────────
+    gateway:
+    build: ./api-gateway
+    image: alexa151/faks-proyect-pisibp:Gateway-${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      AUTH_SERVICE_URL: http://authentication:3001
+      PROFILE_SERVICE_URL: http://profile:3010
+      USER_FOLLOWING_SERVICE_URL: http://user-follows:3011
+      USER_FOLLOWERS_SERVICE_URL: http://users-following:3012
+      USER_POSTS_SERVICE_URL: http://user-posts:3014
+      FEED_SERVICE_URL: http://feed:3015
+      FOLLOW_SERVICE_URL: http://follow-service:3004
+      POST_SERVICE_URL: http://post-service:3006
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - authentication
+      - profile
+      - user-follows
+      - users-following
+      - user-posts
+      - feed
+      - follow-service
+      - post-service
 
 volumes:
-  mysql_data:
+  mysql_auth_data:
   mysql_follow_data:
+  mysql_user_follows_data:
+  mysql_post_data:
+  mysql_user_posts_data:
+  mysql_feed_data:
+  minio_data:

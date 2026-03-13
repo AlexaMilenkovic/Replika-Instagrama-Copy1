@@ -3,6 +3,6 @@ module.exports = {
   follow: 'http://follow-service:3004',
   profile: 'http://profile-service:3013',
   feed: 'http://feed:3015',
-  interactions: 'http://interactions-service:3002',
-  post: 'http://post-service:3001'
+  interactions: 'http://interactions-service:3005',
+  post: 'http://post-service:3006'
 };
