@@ -146,13 +146,13 @@ services:
     image: alexa151/faks-projekat-pisibp:PostService-${IMAGE_TAG}
     container_name: post-service
     ports:
-      - "3003:3000"
+      - "3003:3001"
     restart: unless-stopped
-    env_file:
-      - ./content_servisi/post-service/.env
     environment:
-      PORT: 3000
+      PORT: 3001
       DB_HOST: mysql-post
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: post_service_db
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
@@ -160,12 +160,11 @@ services:
       MINIO_SECRET_KEY: minio123
       MINIO_BUCKET: posts-media
       MINIO_PUBLIC_URL: http://minio:9000
-      INTERACTIONS_SERVICE_URL: http://interactions-service:3000
+      INTERACTIONS_SERVICE_URL: http://interactions-service:3002
+      MAX_FILES: 20
     depends_on:
       mysql-post:
         condition: service_healthy
-    volumes:
-      - ./content_servisi/post-service/uploads:/app/uploads
 
   # ─── Profile services ─────────────────────────────────────
   search:
