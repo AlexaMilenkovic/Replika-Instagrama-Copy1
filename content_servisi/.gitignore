@@ -3,12 +3,14 @@ node_modules/
 
 # env (tajno)
 .env
+.env.*
 
 # uploads (slike/videi)
 uploads/
 post-service/uploads/
 
 # logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
