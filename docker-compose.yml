@@ -19,8 +19,8 @@ services:
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+      MINIO_ROOT_USER: minio_user
+      MINIO_ROOT_PASSWORD: minio_password
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -32,36 +32,36 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Databases (5000-5005) ────────────────────────────────
-  mysql-auth:
+  # ─── Databases ────────────────────────────────────────────
+  mysql-auth_db:
     image: mysql:8.0
-    container_name: mysql-auth
+    container_name: mysql-auth_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: auth_db_password
       MYSQL_DATABASE: auth_db
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: auth_db_user
+      MYSQL_PASSWORD: auth_db_password
     ports:
       - "5000:3306"
     volumes:
       - mysql_auth_data:/var/lib/mysql
       - ./authentication_service/db/auth_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pauth_db_password"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  mysql-follow:
+  mysql-follow_service_db:
     image: mysql:8.0
-    container_name: mysql-follow
+    container_name: mysql-follow-service_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: follow_db
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: follow_service_db_password
+      MYSQL_DATABASE: follow_service_db
+      MYSQL_USER: follow_service_db_user
+      MYSQL_PASSWORD: follow_service_db_password
     ports:
       - "5001:3306"
     volumes:
@@ -69,87 +69,47 @@ services:
       - ./follow-service/sql/baza_followservice.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./follow-service/sql/baza_followservice_primeri.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pfollow_service_db_password"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  mysql-user-follows:
+  mysql-post_service_db:
     image: mysql:8.0
-    container_name: mysql-user-follows
+    container_name: mysql-post_service_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: user_follows_db
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5002:3306"
-    volumes:
-      - mysql_user_follows_data:/var/lib/mysql
-      - ./sql/user_follows_db.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  mysql-post:
-    image: mysql:8.0
-    container_name: mysql-post
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: post_service_db_password
       MYSQL_DATABASE: post_service_db
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: post_service_db_user
+      MYSQL_PASSWORD: post_service_db_password
     ports:
       - "5003:3306"
     volumes:
       - mysql_post_data:/var/lib/mysql
       - ./content_servisi/post-service/sql/post_service_baza.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppost_service_db_password"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  mysql-user-posts:
+  mysql-interactions_service_db:
     image: mysql:8.0
-    container_name: mysql-user-posts
+    container_name: mysql-interactions_service_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: user_posts_db
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5004:3306"
-    volumes:
-      - mysql_user_posts_data:/var/lib/mysql
-      - ./sql/user_posts_db.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  mysql-feed:
-    image: mysql:8.0
-    container_name: mysql-feed
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: feed_db
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: interactions_service_db_password
+      MYSQL_DATABASE: interactions_service_db
+      MYSQL_USER: interactions_service_db_user
+      MYSQL_PASSWORD: interactions_service_db_password
     ports:
       - "5005:3306"
     volumes:
-      - mysql_feed_data:/var/lib/mysql
-      - ./sql/feed_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_interactions_data:/var/lib/mysql
+      - ./content_servisi\interactions-service\sql\interactions_service_baza.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pinteractions_service_db_password"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -160,35 +120,34 @@ services:
     image: alexa151/faks-projekat-pisibp:Authentication-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-auth
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: mysql-auth_db
+      DB_USER: auth_db_user
+      DB_PASSWORD: auth_db_password
       AUTH_DB_NAME: auth_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       PORT: 3001
     depends_on:
-      mysql-auth:
+      mysql-auth_db:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # ─── Profile (search + user info) ────────────────────────
+  # ─── Profile ──────────────────────────────────────────────
   profile:
     build: ./profile
     image: alexa151/faks-projekat-pisibp:Profile-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-auth
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: mysql-auth_db
+      DB_USER: auth_db_user
+      DB_PASSWORD: auth_db_password
       DB_NAME: auth_db
-      JWT_SECRET: ${JWT_SECRET}
       USER_FOLLOWS_URL: http://user-follows:3011
       PORT: 3010
     depends_on:
-      mysql-auth:
+      mysql-auth_db:
         condition: service_healthy
       user-follows:
         condition: service_started
@@ -202,14 +161,14 @@ services:
     container_name: follow-service
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-follow
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: follow_db
+      DB_HOST: mysql-follow_service_db
+      DB_USER: follow_service_db_user
+      DB_PASSWORD: follow_service_db_password
+      DB_NAME: follow_service_db
       PORT: 3004
       USER_INFO_SERVICE_URL: http://profile:3010
     depends_on:
-      mysql-follow:
+      mysql-follow_service_db:
         condition: service_healthy
 
   # ─── User follows / followers ─────────────────────────────
@@ -218,13 +177,13 @@ services:
     image: alexa151/faks-projekat-pisibp:UserFollows-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-user-follows
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: user_follows_db
-      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: mysql-follow_service_db
+      DB_USER: follow_service_db_user
+      DB_PASSWORD: follow_service_db_password
+      DB_NAME: follow_service_db
+      PORT: 3011
     depends_on:
-      mysql-user-follows:
+      mysql-follow_service_db:
         condition: service_healthy
 
   users-following:
@@ -232,13 +191,13 @@ services:
     image: alexa151/faks-projekat-pisibp:UsersFollowing-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-user-follows
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: user_follows_db
-      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: mysql-follow_service_db
+      DB_USER: follow_service_db_user
+      DB_PASSWORD: follow_service_db_password
+      DB_NAME: follow_service_db
+      PORT: 3012
     depends_on:
-      mysql-user-follows:
+      mysql-follow_service_db:
         condition: service_healthy
 
   # ─── Post service ─────────────────────────────────────────
@@ -251,20 +210,20 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3006
-      DB_HOST: mysql-post
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: mysql-post_service_db
+      DB_USER: post_service_db_user
+      DB_PASSWORD: post_service_db_password
       DB_NAME: post_service_db
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: ${MINIO_USER}
-      MINIO_SECRET_KEY: ${MINIO_PASSWORD}
+      MINIO_ACCESS_KEY: minio_user
+      MINIO_SECRET_KEY: minio_password
       MINIO_BUCKET: posts-media
       MINIO_PUBLIC_URL: http://minio:9000
       INTERACTIONS_SERVICE_URL: http://interactions-service:3005
       MAX_FILES: 20
     depends_on:
-      mysql-post:
+      mysql-post_service_db:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -275,13 +234,13 @@ services:
     image: alexa151/faks-projekat-pisibp:UserPosts-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-user-posts
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: user_posts_db
-      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: mysql-post_service_db
+      DB_USER: post_service_db_user
+      DB_PASSWORD: post_service_db_password
+      DB_NAME: post_service_db
+      PORT: 3014
     depends_on:
-      mysql-user-posts:
+      mysql-post_service_db:
         condition: service_healthy
 
   # ─── Feed ─────────────────────────────────────────────────
@@ -290,23 +249,25 @@ services:
     image: alexa151/faks-projekat-pisibp:Feed-${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: mysql-feed
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: feed_db
-      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: mysql-post_service_db
+      DB_USER: post_service_db_user
+      DB_PASSWORD: post_service_db_password
+      DB_NAME: post_service_db
+      PORT: 3015
     depends_on:
-      mysql-feed:
+      mysql-post_service_db:
         condition: service_healthy
 
   # ─── API Gateway ──────────────────────────────────────────
   gateway:
     build: ./api-gateway
-    image: alexa151/faks-proyect-pisibp:Gateway-${IMAGE_TAG}
+    image: alexa151/faks-projekat-pisibp:Gateway-${IMAGE_TAG}
     restart: unless-stopped
     ports:
       - "4000:4000"
     environment:
+      JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: redis://redis:6379
       AUTH_SERVICE_URL: http://authentication:3001
       PROFILE_SERVICE_URL: http://profile:3010
       USER_FOLLOWING_SERVICE_URL: http://user-follows:3011
@@ -315,23 +276,30 @@ services:
       FEED_SERVICE_URL: http://feed:3015
       FOLLOW_SERVICE_URL: http://follow-service:3004
       POST_SERVICE_URL: http://post-service:3006
-      JWT_SECRET: ${JWT_SECRET}
-      REDIS_URL: redis://redis:6379
+      PORT: 4000
     depends_on:
-      - authentication
-      - profile
-      - user-follows
-      - users-following
-      - user-posts
-      - feed
-      - follow-service
-      - post-service
+      redis:
+        condition: service_healthy
+      authentication:
+        condition: service_started
+      profile:
+        condition: service_started
+      user-follows:
+        condition: service_started
+      users-following:
+        condition: service_started
+      user-posts:
+        condition: service_started
+      feed:
+        condition: service_started
+      follow-service:
+        condition: service_started
+      post-service:
+        condition: service_started
 
 volumes:
   mysql_auth_data:
   mysql_follow_data:
-  mysql_user_follows_data:
   mysql_post_data:
-  mysql_user_posts_data:
-  mysql_feed_data:
+  mysql_interactions_data:
   minio_data:
