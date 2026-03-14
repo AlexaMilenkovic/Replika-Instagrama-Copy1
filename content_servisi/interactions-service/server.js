@@ -7,7 +7,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3005;
 
 app.get('/test', (req, res) => {
   res.json({ message: 'Interactions service radi' });
@@ -25,7 +25,7 @@ app.put('/comments/:commentId', InteractionController.updateComment);
 app.delete('/comments/:commentId', InteractionController.deleteComment);
 app.get('/posts/:id/comments/count', InteractionController.getCommentsCount);
 
-/* brisanjw interakcija nakon brisanja objave */
+/* brisanje interakcija nakon brisanja objave */
 app.delete('/interactions/by-post/:postId', InteractionController.deleteByPost);
 
 app.listen(PORT, () => {
