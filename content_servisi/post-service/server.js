@@ -12,7 +12,7 @@ const PostController = require("./controllers/PostController");
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3006;
 //const uploadDir = process.env.UPLOAD_DIR || "uploads";
 const maxFileSize = Number(process.env.MAX_FILE_SIZE || 50 * 1024 * 1024);
 const maxFiles = Number(process.env.MAX_FILES || 20);
@@ -57,6 +57,11 @@ const upload = multer({
 app.get("/", (req, res) => {
   res.json({ message: "Post service is running" });
 });
+//logovanje
+app.use((req, res, next) => {
+  console.log("REQUEST HIT:", req.method, req.url);
+  next();
+});
 
 app.post("/posts", upload.array("files", maxFiles), PostController.createPost);
 
@@ -98,13 +103,13 @@ app.use((err, req, res, next) => {
 /*
 app.listen(PORT, () => {
   console.log(`Post service running on port ${PORT}`);
-});*/
+}); */
 
 async function start() {
   try {
     await ensureBucket();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`Post service running on port ${PORT}`);
     });
   } catch (err) {
