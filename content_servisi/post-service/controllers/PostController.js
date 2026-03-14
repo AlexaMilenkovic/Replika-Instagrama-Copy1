@@ -48,14 +48,14 @@ function mapMedia(item) {
     mediaUrl: buildMediaUrl(item.media_key),
     mediaType: item.media_type,
     mediaSizeBytes: item.media_size_bytes,
-    createdAt: item.created_at
+    createdAt: item.created_at,
   };
 }
 
 function mapPost(post) {
   return {
     ...post,
-    media: (post.media || []).map(mapMedia)
+    media: (post.media || []).map(mapMedia),
   };
 }
 
@@ -64,18 +64,33 @@ function validateOwner(requestUserId, postOwnerId) {
   return Number(requestUserId) === Number(postOwnerId);
 }
 
+//jwt uzimamo iz headera userId
+function getRequestUserId(req) {
+  return Number(req.headers["x-user-id"]);
+}
+
 const createPost = async (req, res) => {
   //logovanje za proveru privremeno
   console.log("CREATE POST HIT");
   console.log("BODY", req.body);
   console.log("FILES", req.files);
   //kraj logovanja
+  /*
   const { userId, caption } = req.body;
 
   if (!userId || Number.isNaN(Number(userId))) {
     return res.status(400).json({ error: "Potreban je validni userId" });
-  }
+  } */
+  //sa jwt
+  const requestUserId = getRequestUserId(req);
+  const { caption } = req.body;
 
+  if (Number.isNaN(requestUserId)) {
+    return res
+      .status(401)
+      .json({ error: "Nedostaje validan userId iz gateway-a" });
+  }
+  //kraj
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: "Potreban bar 1 fajl" });
   }
@@ -102,7 +117,7 @@ const createPost = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    const postId = await PostModel.createPost(Number(userId), caption, conn);
+    const postId = await PostModel.createPost(requestUserId, caption, conn);
     /* NE TREBA - lokalno cuvanje fajlova
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
@@ -131,7 +146,14 @@ const createPost = async (req, res) => {
 
       //const mediaUrl = `${process.env.MINIO_PUBLIC_URL}/${process.env.MINIO_BUCKET}/${objectName}`;
 
-      await PostModel.addMedia(postId, i, objectName, mediaType, file.size, conn);
+      await PostModel.addMedia(
+        postId,
+        i,
+        objectName,
+        mediaType,
+        file.size,
+        conn,
+      );
     }
 
     //kraj
@@ -219,14 +241,23 @@ const getPostsByUserId = async (req, res) => {
 
 const updateCaption = async (req, res) => {
   const postId = Number(req.params.id);
-  const { userId, caption } = req.body;
+  //const { userId, caption } = req.body;
+
+  const requestUserId = getRequestUserId(req);
+  const { caption } = req.body;
 
   if (Number.isNaN(postId)) {
     return res.status(400).json({ error: "id objave nije validan" });
   }
-
+  /*
   if (!userId || Number.isNaN(Number(userId))) {
     return res.status(400).json({ error: "Potreban je validni userId" });
+  }*/
+  //sa jwt
+  if (Number.isNaN(requestUserId)) {
+    return res
+      .status(401)
+      .json({ error: "Nedostaje validan userId iz gateway-a" });
   }
 
   try {
@@ -236,7 +267,7 @@ const updateCaption = async (req, res) => {
       return res.status(404).json({ error: "Objava nije pronađena" });
     }
 
-    if (!validateOwner(userId, post.user_id)) {
+    if (!validateOwner(requestUserId, post.user_id)) {
       return res
         .status(403)
         .json({ error: "Samo korisnik čija je objava može promeniti opis" });
@@ -254,14 +285,21 @@ const updateCaption = async (req, res) => {
 
 const deletePost = async (req, res) => {
   const postId = Number(req.params.id);
-  const requestUserId = Number(req.body.userId || req.query.userId);
+  //const requestUserId = Number(req.body.userId || req.query.userId);
+  const requestUserId = getRequestUserId(req);
 
   if (Number.isNaN(postId)) {
     return res.status(400).json({ error: "id objave nije validan" });
   }
-
+  /*
   if (Number.isNaN(requestUserId)) {
     return res.status(400).json({ error: "Potreban je validni userId" });
+  }*/
+  //sa jwt
+  if (Number.isNaN(requestUserId)) {
+    return res
+      .status(401)
+      .json({ error: "Nedostaje validan userId iz gateway-a" });
   }
 
   try {
@@ -315,14 +353,18 @@ const deletePost = async (req, res) => {
 const deletePostMedia = async (req, res) => {
   const postId = Number(req.params.id);
   const mediaId = Number(req.params.mediaId);
-  const requestUserId = Number(req.body.userId || req.query.userId);
+  //const requestUserId = Number(req.body.userId || req.query.userId);
+
+  const requestUserId = getRequestUserId(req);
 
   if (Number.isNaN(postId) || Number.isNaN(mediaId)) {
     return res.status(400).json({ error: "Post id ili media id nije validan" });
   }
 
   if (Number.isNaN(requestUserId)) {
-    return res.status(400).json({ error: "Potreban je validni userId" });
+    return res
+      .status(401)
+      .json({ error: "Nedostaje validan userId iz gateway-a" });
   }
 
   try {

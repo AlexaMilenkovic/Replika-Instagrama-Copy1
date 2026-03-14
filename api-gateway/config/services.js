@@ -6,5 +6,6 @@ module.exports = {
   'user-posts':   process.env.USER_POSTS_SERVICE_URL || 'http://user-posts:3014',
   feed:           process.env.FEED_SERVICE_URL      || 'http://feed:3015',
   'follow-service': process.env.FOLLOW_SERVICE_URL  || 'http://follow-service:3004',
+  interactions: process.env.INTERACTIONS_SERVICE_URL  || 'http://interactions-service:3005',
   post:           process.env.POST_SERVICE_URL      || 'http://post-service:3006',
 };
